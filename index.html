@@ -1,0 +1,1578 @@
+<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>body{margin:0}[hidden]{display:none!important}</style></head><body><title>Bilan paro guidé</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Literata:opsz,wght@7..72,500;7..72,650&family=Public+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: two columns — guided steps on the left, live diagnosis + report on the right (sticky); stacks on phone */
+:root {
+  --bg: #F3F6F7; --surface: #FFFFFF; --ink: #15232B; --muted: #566771; --line: #D5DEE2;
+  --accent: #1F5C7A; --accent-soft: #E2EDF2; --ok: #2E7552; --ok-soft: #E1F0E8;
+  --warn: #A9601A; --warn-soft: #F7EADB; --crit: #A3302B; --crit-soft: #F6E1DF;
+  --tip-bg: #F7F9EF; --tip-line: #C9D3A6;
+  --display: "Literata", Georgia, serif; --body: "Public Sans", "Segoe UI", system-ui, sans-serif;
+  --mono: "JetBrains Mono", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0F171B; --surface: #172227; --ink: #E3ECEF; --muted: #93A6AF; --line: #2A3A42;
+  --accent: #7DB9D6; --accent-soft: #1C3341; --ok: #78C59C; --ok-soft: #173126;
+  --warn: #E2A464; --warn-soft: #3A2A18; --crit: #EE8D86; --crit-soft: #3D1E1C;
+  --tip-bg: #1C2219; --tip-line: #4A5636; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #0F171B; --surface: #172227; --ink: #E3ECEF; --muted: #93A6AF; --line: #2A3A42;
+  --accent: #7DB9D6; --accent-soft: #1C3341; --ok: #78C59C; --ok-soft: #173126;
+  --warn: #E2A464; --warn-soft: #3A2A18; --crit: #EE8D86; --crit-soft: #3D1E1C;
+  --tip-bg: #1C2219; --tip-line: #4A5636; color-scheme: dark }
+
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font: 15px/1.55 var(--body); }
+.wrap { max-width: 1240px; margin: 0 auto; padding-inline: 16px; padding-block: 20px 48px; }
+header.top { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 12px; margin-bottom: 18px; }
+h1 { font: 650 1.75rem/1.2 var(--display); margin: 0; text-wrap: balance; }
+.sub { color: var(--muted); margin: 4px 0 0; max-width: 62ch; }
+.tabs { display: flex; gap: 4px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 4px; }
+.tabs button { font: 600 0.9rem var(--body); border: 0; background: none; color: var(--muted); padding: 8px 14px; border-radius: 7px; cursor: pointer; }
+.tabs button[aria-selected="true"] { background: var(--accent); color: var(--surface); }
+.tabs button:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.notice { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; background: var(--accent-soft); border-radius: 10px; padding: 10px 14px; margin-bottom: 18px; font-size: 0.9rem; }
+.notice b { color: var(--accent); }
+.btn { font: 600 0.88rem var(--body); border: 1px solid var(--accent); color: var(--accent); background: var(--surface); padding: 7px 13px; border-radius: 8px; cursor: pointer; }
+.btn.primary { background: var(--accent); color: var(--surface); }
+
+.grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 440px); gap: 22px; align-items: start; }
+@media (max-width: 900px) { .grid { grid-template-columns: minmax(0, 1fr); } }
+.steps { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.step { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; display: flex; flex-direction: column; gap: 12px; }
+.step h2 { display: flex; align-items: baseline; gap: 10px; font: 650 1.1rem/1.3 var(--display); margin: 0; }
+.num { font: 600 0.75rem var(--mono); color: var(--accent); border: 1px solid var(--accent); border-radius: 50%; width: 24px; height: 24px; display: inline-grid; place-items: center; flex: none; transform: translateY(-2px); }
+.fields { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 12px 16px; }
+label.f { display: flex; flex-direction: column; gap: 4px; font-size: 0.82rem; font-weight: 600; color: var(--muted); letter-spacing: 0.01em; }
+input[type=number], input[type=text], input[type=date], select, textarea {
+  font: 400 0.95rem var(--body); color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 7px; padding: 7px 9px; width: 100%; min-width: 0; }
+input[type=number] { font-family: var(--mono); }
+textarea { resize: vertical; min-height: 60px; }
+.unit { display: flex; align-items: center; gap: 6px; }
+.unit span { font: 400 0.82rem var(--mono); color: var(--muted); }
+.checks { display: flex; flex-direction: column; gap: 7px; }
+.checks label { display: flex; gap: 9px; align-items: flex-start; font-size: 0.93rem; cursor: pointer; }
+.checks input { margin-top: 4px; accent-color: var(--accent); flex: none; }
+.inline { display: inline-flex; align-items: center; gap: 6px; }
+.inline input, .inline select { width: auto; padding: 3px 6px; }
+.inline input[type=number] { width: 58px; }
+
+details.tip { background: var(--tip-bg); border: 1px solid var(--tip-line); border-radius: 9px; padding: 8px 12px; font-size: 0.88rem; }
+details.tip summary { cursor: pointer; font-weight: 600; color: var(--ink); }
+details.tip p { margin: 8px 0 0; max-width: 70ch; }
+.ref { overflow-x: auto; margin-top: 8px; }
+.ref table { border-collapse: collapse; font-size: 0.82rem; min-width: 460px; width: 100%; }
+.ref th, .ref td { border-bottom: 1px solid var(--tip-line); padding: 5px 8px; text-align: left; vertical-align: top; }
+.ref th { font-weight: 600; color: var(--muted); }
+.ref td:first-child { font-weight: 600; white-space: nowrap; }
+.ref .mono { font-family: var(--mono); }
+
+aside.result { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 12px); display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+@media (max-width: 900px) { aside.result { position: static; } }
+.dx { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; display: flex; flex-direction: column; gap: 12px; }
+.eyebrow { font: 600 0.72rem var(--body); letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.badges { display: flex; flex-wrap: wrap; gap: 8px; }
+.badge { font: 600 0.95rem var(--body); padding: 6px 12px; border-radius: 8px; border: 1px solid currentColor; }
+.s1 { color: var(--ok); background: var(--ok-soft); } .s2 { color: var(--accent); background: var(--accent-soft); }
+.s3 { color: var(--warn); background: var(--warn-soft); } .s4 { color: var(--crit); background: var(--crit-soft); }
+.why { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; font-size: 0.86rem; }
+.why li { display: grid; grid-template-columns: 14px minmax(0, 1fr); gap: 8px; }
+.why li::before { content: ""; width: 8px; height: 8px; border-radius: 2px; background: var(--accent); margin-top: 7px; }
+.why li.up::before { background: var(--warn); }
+.why li.warn { color: var(--crit); } .why li.warn::before { background: var(--crit); }
+.report { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; display: flex; flex-direction: column; }
+.report .bar { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 10px 14px; border-bottom: 1px solid var(--line); }
+.report textarea { border: 0; border-radius: 0; background: var(--surface); font: 400 0.86rem/1.55 var(--mono); min-height: 360px; padding: 14px; white-space: pre-wrap; }
+.toast { font-size: 0.82rem; color: var(--ok); min-height: 1em; }
+.warnline { font-size: 0.8rem; color: var(--warn); }
+/* chairside */
+.chair { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 0.9fr) minmax(0, 1fr); gap: 16px; align-items: stretch; }
+@media (max-width: 1000px) { .chair { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } .chair .now { grid-column: 1 / -1; } }
+@media (max-width: 560px) { .chair { grid-template-columns: minmax(0, 1fr); } }
+.now { background: var(--surface); border: 2px solid var(--accent); border-radius: 14px; padding: 16px 18px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.nowTooth { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
+#nowTooth { font: 650 4.2rem/1 var(--display); color: var(--accent); font-variant-numeric: tabular-nums; }
+.nowFace { font: 600 1.25rem var(--body); }
+.nowSite { font: 600 1.05rem var(--body); color: var(--muted); }
+.now.done #nowTooth { font-size: 2rem; }
+.capture { display: flex; flex-direction: column; gap: 5px; }
+.capture input { font: 600 1.1rem var(--mono); padding: 10px 12px; border: 2px dashed var(--accent); background: var(--accent-soft); }
+.capture input:focus { border-style: solid; outline: none; }
+.ctl { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; font-size: 0.88rem; }
+.pad { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; align-content: start; }
+.pad button { font: 600 1.5rem var(--mono); padding: 14px 0; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); cursor: pointer; min-height: 58px; }
+.pad button:active { background: var(--accent-soft); }
+.pad button.red { font: 600 1rem var(--body); color: var(--crit); border-color: var(--crit); }
+.pad button[data-k=skip], .pad button[data-k="10"] { font: 600 1rem var(--body); }
+.stats .kv { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px 12px; font-size: 0.92rem; }
+.stats .kv b { font: 600 1rem var(--mono); text-align: right; font-variant-numeric: tabular-nums; }
+.stats .kv .sites { grid-column: 1 / -1; color: var(--muted); font-size: 0.84rem; }
+.chartBox { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px; margin-bottom: 16px; }
+.barBtns { display: flex; gap: 6px; flex-wrap: wrap; }
+.toothScroll { overflow-x: auto; }
+.teeth { border-collapse: collapse; width: 100%; min-width: 720px; font-size: 0.86rem; }
+.teeth th { text-align: left; font: 600 0.74rem var(--body); color: var(--muted); letter-spacing: 0.03em; padding: 4px 6px; }
+.teeth .qrow th { font: 650 0.9rem var(--display); color: var(--accent); padding-top: 12px; border-bottom: 1px solid var(--line); }
+.teeth td { padding: 4px 6px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+.teeth select, .teeth input[type=text] { padding: 4px 6px; font-size: 0.84rem; }
+.teeth td:nth-child(2) { width: 150px; } .teeth td:nth-child(4) { width: 120px; }
+.tn2 { font: 600 0.95rem var(--mono); width: 44px; }
+.teeth tr.gone .tn2 { color: var(--muted); text-decoration: line-through; }
+.teeth tr.ai td { background: var(--accent-soft); }
+.teeth tr.ai .tn2::after { content: " ✦"; color: var(--accent); font-size: 0.7rem; }
+.chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.tchip { font: 500 0.74rem var(--body); padding: 3px 7px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); color: var(--muted); cursor: pointer; }
+.tchip.on { background: var(--accent); border-color: var(--accent); color: var(--surface); }
+.tchip.warnc.on { background: var(--warn); border-color: var(--warn); }
+.opt { font: 500 0.78rem var(--body); color: var(--muted); margin: 0 0 0 8px; }
+.dropEmpty .opt { margin: 0; }
+.drop { border: 2px dashed var(--line); border-radius: 10px; padding: 14px; display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; }
+.drop.over { border-color: var(--accent); background: var(--accent-soft); }
+.dropEmpty { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.dropEmpty p { margin: 0; }
+#panoCanvas { width: 100%; height: auto; display: block; cursor: crosshair; touch-action: none; border-radius: 6px; background: #000; }
+.maskHint { font-size: 0.86rem; color: var(--muted); flex-basis: 100%; }
+.aiBox { display: flex; flex-direction: column; gap: 8px; font-size: 0.92rem; }
+.panoMsg { margin: 0; font-size: 0.88rem; color: var(--muted); }
+.panoMsg.err { color: var(--crit); }
+.aiOut { border-top: 1px solid var(--line); padding-top: 10px; display: flex; flex-direction: column; gap: 8px; }
+.aiOut ul { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; font-size: 0.9rem; }
+.aiOut li { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 8px; align-items: baseline; }
+.aiOut li b { font-weight: 600; }
+.chip { font: 600 0.72rem var(--body); padding: 2px 7px; border-radius: 999px; border: 1px solid currentColor; white-space: nowrap; }
+.chip.prob { color: var(--warn); background: var(--warn-soft); }
+.chip.poss { color: var(--muted); background: var(--bg); }
+label.ai > select, label.ai > input[type=text], label.ai > textarea { background: var(--accent-soft); border-color: var(--accent); }
+label.ai::after { content: "proposé par Claude, à vérifier"; font: 500 0.72rem var(--body); color: var(--accent); }
+.checks label.ai::after { margin-left: 4px; align-self: center; }
+.heardBox { display: flex; flex-direction: column; gap: 4px; }
+.heardLog { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; font: 400 0.85rem/1.4 var(--mono); }
+.heardLog li:first-child { font-weight: 600; color: var(--ink); }
+.heardLog li { color: var(--muted); }
+.heardLog li.bad { color: var(--crit); }
+.heardLog li.ign { color: var(--muted); font-style: italic; font-weight: 400; }
+.lastVal { font: 650 1.3rem var(--mono); color: var(--ink); }
+.micBtn { font-size: 1.05rem; padding: 12px 16px; align-self: flex-start; }
+.micBtn.on { background: var(--crit); border-color: var(--crit); }
+.micMsg { font-size: 0.85rem; color: var(--muted); }
+.micMsg.err { color: var(--crit); }
+.pchart { width: 100%; min-width: 980px; display: block; }
+.pchart .z { fill: var(--surface); stroke: var(--muted); stroke-width: 1; cursor: pointer; }
+.pchart .z:hover { fill: var(--accent-soft); }
+.pchart .z.w4 { fill: var(--warn-soft); } .pchart .z.w5 { fill: var(--warn); } .pchart .z.w6 { fill: var(--crit); }
+.pchart text { text-anchor: middle; dominant-baseline: middle; }
+.pchart .v { font: 600 15px var(--mono); fill: var(--ink); pointer-events: none; }
+.pchart .v.w5, .pchart .v.w6 { fill: var(--surface); }
+.pchart .bd { fill: var(--crit); pointer-events: none; }
+.pchart .z.w5 + .v + .bd, .pchart .z.w6 + .v + .bd { fill: var(--surface); }
+.pchart .curz { fill: none; stroke: var(--accent); stroke-width: 3.5; pointer-events: none; }
+.pchart .mob { fill: var(--bg); stroke: var(--muted); stroke-width: 1; cursor: pointer; }
+.pchart .mob.m2 { fill: var(--warn-soft); stroke: var(--warn); }
+.pchart .mt { font: 600 12px var(--mono); fill: var(--ink); pointer-events: none; }
+.pchart .tnum { font: 600 13px var(--mono); fill: var(--ink); cursor: pointer; }
+.pchart .tnum.abs { fill: var(--muted); text-decoration: line-through; }
+.pchart .absr { fill: url(#hatch); stroke: var(--line); }
+.pchart .hl { stroke: var(--line); stroke-width: 2; }
+.pchart .fcg { cursor: pointer; }
+.pchart .fc { fill: var(--surface); stroke: var(--muted); stroke-width: 1; }
+.pchart .fc.f23 { fill: var(--warn-soft); stroke: var(--warn); stroke-width: 1.5; }
+.pchart .ft { font: 600 8px var(--body); fill: var(--ink); pointer-events: none; }
+.pchart .flab { font: 600 11px var(--body); fill: var(--muted); text-anchor: start; }
+.pchart .midl { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 3 3; }
+.chartScroll { overflow-x: auto; }
+.arch { display: grid; grid-template-columns: 74px repeat(16, 66px); gap: 0; min-width: max-content; }
+.arch + .arch { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line); }
+.arch .lab { font: 600 0.72rem var(--body); color: var(--muted); display: flex; align-items: center; letter-spacing: 0.02em; }
+.tn { font: 600 0.85rem var(--mono); text-align: center; padding: 4px 0; cursor: pointer; border: 0; background: none; color: var(--ink); border-left: 1px solid var(--line); }
+.tn.mid { border-left: 2px solid var(--muted); }
+.tn.abs { color: var(--muted); text-decoration: line-through; }
+.cells { display: grid; grid-template-columns: repeat(3, 1fr); border-left: 1px solid var(--line); }
+.cells.mid { border-left: 2px solid var(--muted); }
+.cells.abs { background: repeating-linear-gradient(135deg, transparent 0 5px, var(--line) 5px 6px); }
+.site { font: 600 0.9rem var(--mono); height: 30px; border: 0; background: none; color: var(--ink); cursor: pointer; position: relative; padding: 0; }
+.site.w4 { background: var(--warn-soft); }
+.site.w5 { background: var(--warn); color: var(--surface); }
+.site.w6 { background: var(--crit); color: var(--surface); }
+.site.bop::after { content: ""; position: absolute; left: 50%; bottom: 2px; width: 6px; height: 6px; margin-left: -3px; border-radius: 50%; background: var(--crit); }
+.site.w5.bop::after, .site.w6.bop::after { background: var(--surface); }
+.site.cur { outline: 3px solid var(--accent); outline-offset: -3px; z-index: 1; }
+.legend { font-size: 0.82rem; color: var(--muted); display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin: 10px 0 0; }
+.sw { display: inline-block; width: 14px; height: 14px; border-radius: 3px; vertical-align: middle; }
+.sw.w4 { background: var(--warn-soft); border: 1px solid var(--warn); } .sw.w5 { background: var(--warn); } .sw.w6 { background: var(--crit); }
+.legend .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--crit); display: inline-block; }
+.howto { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px; margin-top: 16px; align-items: start; }
+.foot a { color: var(--accent); }
+.foot { color: var(--muted); font-size: 0.8rem; margin-top: 26px; max-width: 80ch; }
+@media (prefers-reduced-motion: no-preference) { .badge { transition: background .2s, color .2s; } }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>Bilan paro guidé</h1>
+      <p class="sub">Remplissez les étapes dans l’ordre. À chaque étape, les repères de la classification AAP/EFP 2017 sont rappelés, et le diagnostic se construit sous vos yeux avec sa justification.</p>
+    </div>
+    <div class="tabs" role="tablist">
+      <button role="tab" id="tab-sond" aria-selected="false">Sondage au fauteuil</button>
+      <button role="tab" id="tab-paro" aria-selected="true">Bilan parodontal</button>
+      <button role="tab" id="tab-pano" aria-selected="false">Lecture panoramique</button>
+    </div>
+  </header>
+
+  <div class="notice">
+    <span><b>Exemple pré-rempli.</b> Aucune donnée n’est enregistrée : rien ne sort de cette page tant que vous ne copiez pas le texte. N’y saisissez jamais le nom du patient.</span>
+    <button class="btn" id="reset">Nouveau patient</button>
+    <button class="btn" id="sample">Recharger l’exemple</button>
+  </div>
+
+  <!-- ================= SONDAGE ================= -->
+  <section id="view-sond" role="tabpanel" hidden>
+    <div class="chartBox">
+      <div class="chartScroll"><div id="chart"></div></div>
+      <p class="legend"><span class="sw w4"></span>4 mm <span class="sw w5"></span>5 mm <span class="sw w6"></span>6 mm et plus <span><span class="dot"></span> saignement</span><span>Cliquez</span> sur une zone pour y revenir, sur un numéro pour marquer la dent absente, sur un cercle pour la furcation (0, I, II, III), sur le carré central pour la mobilité (0 à 3).</span></p>
+    </div>
+    <div class="chair">
+      <div class="now" id="nowBox">
+        <span class="eyebrow">Site à mesurer</span>
+        <div class="nowTooth"><span id="nowTooth">18</span><span class="nowFace" id="nowFace">vestibulaire</span></div>
+        <div class="nowSite" id="nowSite">distal</div>
+        <label class="capture" for="cap">
+          <span class="eyebrow">Cliquez ici avant de commencer, puis dictez ou tapez</span>
+          <input type="text" id="cap" autocomplete="off" spellcheck="false" placeholder="ex. « 3 2 3 saigne 4 »">
+        </label>
+        <button type="button" class="btn primary micBtn" id="micBtn" hidden>🎙 Activer le micro</button>
+        <span class="micMsg" id="micMsg" aria-live="polite"></span>
+        <p class="opt" style="margin:0">Ordre : quadrant par quadrant (18 → 11, 28 → 21, 38 → 31, 48 → 41). Dans chaque quadrant, tout le vestibulaire, puis tout le palatin ou le lingual. Sur chaque dent : distal, centre, mésial.</p>
+        <div class="ctl">
+          <label class="inline"><input type="checkbox" id="speak" checked> Annoncer chaque dent à voix haute</label>
+          <button class="btn" id="undoBtn" type="button">Annuler le dernier</button>
+          <button class="btn" id="absBtn" type="button">Dent absente</button>
+        </div>
+        <span class="toast" id="lastMsg" aria-live="polite"></span>
+        <div class="heardBox">
+          <span class="eyebrow">Ce que le micro a compris</span>
+          <ul class="heardLog" id="heardLog"><li class="ign">Rien pour l’instant. Chaque phrase entendue s’affiche ici avec ce qui a été enregistré.</li></ul>
+        </div>
+      </div>
+
+      <div class="pad" aria-label="Pavé de saisie">
+        <button type="button" data-k="1">1</button><button type="button" data-k="2">2</button><button type="button" data-k="3">3</button>
+        <button type="button" data-k="4">4</button><button type="button" data-k="5">5</button><button type="button" data-k="6">6</button>
+        <button type="button" data-k="7">7</button><button type="button" data-k="8">8</button><button type="button" data-k="9">9</button>
+        <button type="button" data-k="bop" class="red">Saigne</button><button type="button" data-k="10">10+</button><button type="button" data-k="skip">Passer</button>
+      </div>
+
+      <div class="dx stats">
+        <span class="eyebrow">Résultat du sondage</span>
+        <div class="kv" id="sondStats"></div>
+        <button class="btn primary" id="toBilan" type="button">Reporter dans le bilan parodontal</button>
+      </div>
+    </div>
+
+    <div class="howto">
+      <details class="tip" open><summary>Méthode 1, mains libres : la dictée <span class="os-name">Windows</span></summary>
+        <div class="only-mac" hidden>
+          <p><b>Une seule fois, pour activer la dictée sur le Mac :</b> menu Pomme, Réglages Système, Clavier. Dans la partie Dictée, activez la dictée et choisissez la langue <b>Français (France)</b>. Notez le raccourci indiqué juste en dessous : par défaut, appuyer deux fois sur la touche <b>fn</b> (🌐, en bas à gauche du clavier). Si le Mac demande l’accès au micro, acceptez.</p>
+        </div>
+        <p>Avant de mettre vos gants : cliquez dans le champ « Cliquez ici », puis <b class="os-key">appuyez sur Windows + H</b>. Ensuite, parlez en sondant : « trois deux trois », « saigne » juste après le site qui saigne, « absente » quand la dent manque. L’ordinateur annonce chaque nouvelle dent et le passage en palatin ou lingual : vous savez où vous en êtes sans regarder l’écran. La ligne « Entendu » sous le champ montre ce que la dictée a écrit.</p>
+        <p class="only-mac" hidden><b>Si rien ne s’écrit :</b> 1. après le double appui sur fn, une petite icône de micro doit apparaître près du curseur ; si elle n’apparaît pas, la dictée n’est pas activée ou le raccourci est différent (vérifiez-le dans Réglages Système, Clavier, Dictée) ; 2. dans Réglages Système, Confidentialité et sécurité, Microphone, vérifiez que l’accès est autorisé ; 3. dans Réglages Système, Son, Entrée, vérifiez que le bon micro est choisi ; 4. le curseur doit clignoter dans le champ « Cliquez ici » au moment où vous parlez. Pour arrêter la dictée, appuyez sur Échap ou de nouveau deux fois sur fn. Si elle s’arrête seule après un silence, relancez-la de la même façon.</p>
+        <p class="only-win"><b>Si rien ne s’écrit :</b> 1. vérifiez qu’une petite barre avec un micro apparaît en haut de l’écran après Windows + H ; 2. dans Paramètres Windows, rubrique Confidentialité et sécurité, ouvrez Voix et activez la reconnaissance vocale en ligne ; 3. toujours dans Confidentialité, ouvrez Microphone et autorisez l’accès ; 4. vérifiez que le micro choisi dans Paramètres, Système, Son est bien celui que vous utilisez ; 5. le curseur doit clignoter dans le champ « Cliquez ici » au moment où vous parlez. La dictée se coupe après quelques secondes de silence : relancez-la avec Windows + H.</p>
+        <div class="ref"><table>
+          <tr><th>Vous dites</th><th>Effet</th></tr>
+          <tr><td>« trois », « 3 »</td><td>enregistre 3 mm et passe au site suivant</td></tr>
+          <tr><td>« saigne »</td><td>marque un saignement sur le site que vous venez de mesurer</td></tr>
+          <tr><td>« absente »</td><td>la dent en cours est absente, on passe à la suivante</td></tr>
+          <tr><td>« passe »</td><td>site non mesuré, on avance</td></tr>
+          <tr><td>« retour »</td><td>efface le dernier site mesuré</td></tr>
+        </table></div></details>
+      <details class="tip"><summary>Méthode 2 : un pavé numérique USB (une quinzaine d’euros)</summary>
+        <p>Posé près de vous et protégé par un film alimentaire, il se tape du bout du doigt ganté entre deux sites. Un chiffre suffit, pas besoin de valider. <b>+</b> ou <b>*</b> : saignement · <b>−</b> : annuler · <b>/</b> : dent absente · <b>Entrée</b> : passer le site. Sur tablette, le pavé à l’écran fait la même chose.</p></details>
+      <details class="tip"><summary>L’ordre du sondage, et pourquoi</summary>
+        <p>On sonde 6 sites par dent, quadrant par quadrant, toujours de la dent la plus distale vers la ligne médiane : <b>18 → 11</b>, puis <b>28 → 21</b>, puis <b>38 → 31</b>, puis <b>48 → 41</b>. Dans chaque quadrant, on fait d’abord <b>toute la face vestibulaire</b>, puis <b>toute la face palatine</b> (ou linguale à la mandibule). Sur chaque dent : distal, centre, mésial. La voix annonce chaque changement de face ou de quadrant. Vous pouvez marquer les dents absentes à l’avance en cliquant sur leur numéro, ou dire « absente » en arrivant dessus.</p></details>
+    </div>
+  </section>
+
+  <!-- ================= PARO ================= -->
+  <section id="view-paro" role="tabpanel">
+    <div class="grid">
+      <form class="steps" id="fParo" autocomplete="off">
+        <div class="step">
+          <h2><span class="num">1</span>Contexte</h2>
+          <div class="fields">
+            <label class="f">Type de bilan
+              <select id="p_type"><option value="init">Bilan initial</option><option value="reeval">Réévaluation après traitement</option><option value="maint">Séance de maintenance</option></select></label>
+            <label class="f">Âge du patient
+              <span class="unit"><input type="number" id="p_age" min="5" max="110"><span>ans</span></span></label>
+            <label class="f">Motif
+              <select id="p_motif"><option value="">—</option><option>adressé(e) pour bilan parodontal</option><option>saignements gingivaux</option><option>mobilités dentaires</option><option>récessions gingivales</option><option>halitose</option><option>découverte lors d’un examen de contrôle</option></select></label>
+          </div>
+          <div class="checks"><label><input type="checkbox" id="p_traite">Parodontite déjà traitée (le patient reste à risque à vie : maintenance)</label></div>
+          <details class="tip"><summary>Pourquoi l’âge compte</summary>
+            <p>Il sert au calcul du grade : on rapporte le pourcentage d’alvéolyse sur la dent la plus atteinte à l’âge du patient. 40 % de perte osseuse à 30 ans ne raconte pas la même histoire qu’à 70 ans.</p></details>
+        </div>
+
+        <div class="step">
+          <h2><span class="num">2</span>Facteurs de risque</h2>
+          <div class="fields">
+            <label class="f">Tabac
+              <select id="p_tabac"><option value="0">Non-fumeur</option><option value="ex">Ancien fumeur</option><option value="1">Moins de 10 cigarettes/jour</option><option value="2">10 cigarettes/jour ou plus</option></select></label>
+            <label class="f">Diabète
+              <select id="p_diab"><option value="0">Pas de diabète</option><option value="1">Diabète équilibré (HbA1c &lt; 7 %)</option><option value="2">Diabète déséquilibré (HbA1c ≥ 7 %)</option></select></label>
+          </div>
+          <details class="tip" open><summary>Ce sont les « modulateurs » du grade</summary>
+            <p>Ils ne changent pas le stade, mais ils peuvent remonter le grade, quelle que soit l’alvéolyse.</p>
+            <div class="ref"><table>
+              <tr><th></th><th>Grade A</th><th>Grade B</th><th>Grade C</th></tr>
+              <tr><td>Tabac</td><td>non-fumeur</td><td>&lt; 10 cig./jour</td><td>≥ 10 cig./jour</td></tr>
+              <tr><td>Diabète</td><td>normoglycémie</td><td>HbA1c &lt; 7 %</td><td>HbA1c ≥ 7 %</td></tr>
+            </table></div></details>
+        </div>
+
+        <div class="step">
+          <h2><span class="num">3</span>Indices cliniques</h2>
+          <div class="fields">
+            <label class="f">Indice de plaque
+              <span class="unit"><input type="number" id="p_plaque" min="0" max="100"><span>% des faces</span></span></label>
+            <label class="f">Saignement au sondage (BOP)
+              <span class="unit"><input type="number" id="p_bop" min="0" max="100"><span>% des sites</span></span></label>
+            <label class="f">Dents présentes
+              <span class="unit"><input type="number" id="p_dents" min="0" max="32"><span>dents</span></span></label>
+          </div>
+          <details class="tip"><summary>Repères d’interprétation</summary>
+            <p><b>BOP &lt; 10 %</b> : santé gingivale ou parodonte stable. <b>BOP ≥ 10 %</b> : gingivite, avec ou sans parodontite associée. Sondez avec une force légère, de 20 à 25 g, sans compter les pseudo-poches. L’objectif de plaque est généralement d’environ 20 % ou moins.</p></details>
+        </div>
+
+        <div class="step">
+          <h2><span class="num">4</span>Est-ce bien une parodontite ?</h2>
+          <div class="checks">
+            <label><input type="checkbox" id="p_cas1">Perte d’attache interdentaire sur au moins 2 dents non adjacentes</label>
+            <label><input type="checkbox" id="p_cas2">Perte d’attache vestibulaire ≥ 3 mm avec poche &gt; 3 mm sur au moins 2 dents</label>
+            <label><input type="checkbox" id="p_nonparo">La perte d’attache s’explique entièrement par une autre cause (liste ci-dessous)</label>
+          </div>
+          <details class="tip" open><summary>La définition d’un cas de parodontite</summary>
+            <p>Il suffit de l’un des deux premiers critères. Mais une perte d’attache ne signe pas toujours une parodontite. On l’écarte quand elle vient d’une <b>récession d’origine traumatique</b>, d’une <b>carie cervicale</b>, d’une perte distale sur une <b>deuxième molaire</b> liée à une malposition ou à l’extraction de la dent de sagesse, d’une <b>lésion endodontique</b> qui se draine par le parodonte marginal, ou d’une <b>fracture radiculaire verticale</b>.</p>
+            <div class="ref"><table>
+              <tr><th></th><th>Parodonte intact</th><th>Parodonte réduit, sans parodontite</th><th>Patient parodontal traité</th></tr>
+              <tr><td>Perte d’attache</td><td>non</td><td>oui (récession, élongation coronaire…)</td><td>oui</td></tr>
+              <tr><td>Alvéolyse</td><td>non</td><td>possible</td><td>oui</td></tr>
+              <tr><td>Santé</td><td class="mono">PD ≤ 3, BOP &lt; 10 %</td><td class="mono">PD ≤ 3, BOP &lt; 10 %</td><td class="mono">PD ≤ 4, BOP &lt; 10 %</td></tr>
+              <tr><td>Gingivite</td><td class="mono">PD ≤ 3, BOP ≥ 10 %</td><td class="mono">PD ≤ 3, BOP ≥ 10 %</td><td class="mono">BOP ≥ 10 %</td></tr>
+            </table></div>
+            <p>Une fois la parodontite confirmée : sondage 6 sites et radiographies (panoramique, complétée si besoin par des rétro-coronaires ou rétro-alvéolaires), puis stade, grade, étendue et descripteurs.</p></details>
+        </div>
+
+        <div class="step">
+          <h2><span class="num">5</span>Sévérité : elle donne le stade de départ</h2>
+          <div class="fields">
+            <label class="f">Perte d’attache interdentaire max (CAL)
+              <span class="unit"><input type="number" id="p_cal" min="0" max="15" step="0.5"><span>mm</span></span></label>
+            <label class="f">Alvéolyse max (sur la radio)
+              <span class="unit"><input type="number" id="p_rbl" min="0" max="100"><span>% racine</span></span></label>
+            <label class="f">Dents perdues pour raison paro
+              <span class="unit"><input type="number" id="p_perdues" min="0" max="32"><span>dents</span></span></label>
+          </div>
+          <details class="tip" open><summary>Tableau de sévérité</summary>
+            <p>On mesure au site interdentaire le plus atteint. La CAL est le critère principal ; l’alvéolyse sert quand la CAL n’est pas disponible ou pour confirmer.</p>
+            <div class="ref"><table>
+              <tr><th></th><th>Stade I</th><th>Stade II</th><th>Stade III</th><th>Stade IV</th></tr>
+              <tr><td>CAL max</td><td class="mono">1–2 mm</td><td class="mono">3–4 mm</td><td class="mono">≥ 5 mm</td><td class="mono">≥ 5 mm</td></tr>
+              <tr><td>Alvéolyse</td><td>tiers coronaire &lt; 15 %</td><td>tiers coronaire 15–33 %</td><td>tiers moyen ou apical</td><td>tiers moyen ou apical</td></tr>
+              <tr><td>Dents perdues (paro)</td><td>aucune</td><td>aucune</td><td class="mono">≤ 4</td><td class="mono">≥ 5</td></tr>
+            </table></div></details>
+        </div>
+
+        <div class="step">
+          <h2><span class="num">6</span>Complexité : elle peut faire monter le stade</h2>
+          <div class="fields">
+            <label class="f">Profondeur de poche max
+              <span class="unit"><input type="number" id="p_pd" min="0" max="15"><span>mm</span></span></label>
+            <label class="f">Sites ≥ 5 mm
+              <span class="unit"><input type="number" id="p_sites5" min="0" max="192"><span>sites</span></span></label>
+            <label class="f">Défaut de crête
+              <select id="p_crete"><option value="0">Absent ou léger</option><option value="3">Modéré</option><option value="4">Sévère</option></select></label>
+          </div>
+          <div class="checks">
+            <label><input type="checkbox" id="p_vert">Défauts osseux angulaires ≥ 3 mm</label>
+            <label><input type="checkbox" id="p_furc">Atteinte de furcation de classe II ou III</label>
+            <label><input type="checkbox" id="p_mob">Mobilité de classe 2 ou plus (traumatisme occlusal secondaire)</label>
+            <label><input type="checkbox" id="p_migr">Migrations, égression, diastèmes ou effondrement de l’occlusion</label>
+            <label><input type="checkbox" id="p_moins20">Moins de 20 dents restantes (moins de 10 paires antagonistes)</label>
+          </div>
+          <details class="tip" open><summary>Comment la complexité joue</summary>
+            <div class="ref"><table>
+              <tr><th></th><th>Ce qui le définit</th></tr>
+              <tr><td>Stade I</td><td>poches ≤ 4 mm, alvéolyse surtout horizontale, furcation absente ou de classe I, crête intacte ou peu atteinte</td></tr>
+              <tr><td>Stade II</td><td>poches ≤ 5 mm, alvéolyse surtout horizontale, furcation absente ou de classe I, crête intacte ou peu atteinte</td></tr>
+              <tr><td>Stade III</td><td>poches ≥ 6 mm, défauts angulaires ≥ 3 mm, furcation II ou III, défaut de crête modéré</td></tr>
+              <tr><td>Stade IV</td><td>en plus du stade III, défaut de crête sévère ou besoin d’une réhabilitation complexe : mobilité ≥ 2, effondrement occlusal, migrations, moins de 20 dents</td></tr>
+            </table></div>
+            <p>Un seul facteur de complexité suffit à faire monter le stade. Le passage en stade IV suppose une sévérité de stade III.</p>
+            <p>Ce que chaque stade annonce : <b>I</b>, début de perte d’attache, réversible avec l’hygiène et le contrôle des facteurs de risque ; <b>II</b>, atteinte modérée, traitement non chirurgical et bon pronostic ; <b>III</b>, lésions profondes, chirurgie parfois nécessaire ; <b>IV</b>, prise en charge pluridisciplinaire (paro, prothèse, parfois orthodontie).</p></details>
+        </div>
+
+        <div class="step">
+          <h2><span class="num">7</span>Étendue, grade et descripteurs</h2>
+          <div class="fields">
+            <label class="f">Étendue
+              <select id="p_etendue"><option value="gen">Généralisée (≥ 30 % des dents)</option><option value="loc">Localisée (&lt; 30 % des dents)</option><option value="mi">Molaires-incisives</option></select></label>
+            <label class="f">Perte mesurée sur les 5 dernières années
+              <select id="p_direct"><option value="nd">Pas de document antérieur</option><option value="A">Aucune perte</option><option value="B">Moins de 2 mm</option><option value="C">2 mm ou plus</option></select></label>
+            <label class="f">Plaque au regard de la destruction
+              <select id="p_pheno"><option value="B">En rapport</option><option value="A">Beaucoup de plaque, peu de destruction</option><option value="C">Peu de plaque, beaucoup de destruction</option></select></label>
+            <label class="f">Grade
+              <select id="p_gradeforce"><option value="auto">Calcul automatique</option><option value="A">Forcer A</option><option value="B">Forcer B</option><option value="C">Forcer C</option></select></label>
+            <label class="f">Descripteur systémique (facultatif)<input type="text" id="p_descr" placeholder="ex. lupus, polyarthrite rhumatoïde"></label>
+          </div>
+          <details class="tip" open><summary>Le grade, pas à pas</summary>
+            <p>Le grade estime la vitesse de progression. La <b>preuve directe</b> passe en premier : comparer avec une radio ou un charting de moins de 5 ans. Sans document antérieur, on calcule <b>% d’alvéolyse sur la dent la plus atteinte ÷ âge</b>, en écartant les lésions endo-parodontales.</p>
+            <div class="ref"><table>
+              <tr><th></th><th>Grade A, lent</th><th>Grade B, modéré</th><th>Grade C, rapide</th></tr>
+              <tr><td>Perte sur 5 ans</td><td>aucune</td><td class="mono">&lt; 2 mm</td><td class="mono">≥ 2 mm</td></tr>
+              <tr><td>Alvéolyse ÷ âge</td><td class="mono">&lt; 0,25</td><td class="mono">0,25 à 1</td><td class="mono">&gt; 1</td></tr>
+              <tr><td>Plaque / destruction</td><td>beaucoup de plaque, peu de destruction</td><td>en rapport</td><td>peu de plaque, beaucoup de destruction</td></tr>
+              <tr><td>Tabac</td><td>non-fumeur</td><td>&lt; 10 cig./jour</td><td>≥ 10 cig./jour</td></tr>
+              <tr><td>Diabète</td><td>non</td><td>HbA1c &lt; 7 %</td><td>HbA1c ≥ 7 %</td></tr>
+            </table></div>
+            <p>Exemple : 30 % d’alvéolyse sur 16 chez un patient de 38 ans donne 30 ÷ 38 = 0,78, donc grade B. Les modulateurs (tabac, diabète) peuvent ensuite remonter le grade. Une maladie générale qui influence le parodonte s’ajoute en descripteur.</p></details>
+        </div>
+
+        <div class="step">
+          <h2><span class="num">8</span>Plan de traitement</h2>
+          <div class="checks">
+            <label><input type="checkbox" id="t_e1">Étape 1 : motivation et enseignement à l’hygiène, détartrage supra-gingival, élimination des facteurs de rétention, contrôle des facteurs de risque</label>
+            <label style="padding-left:26px"><input type="checkbox" id="t_brossettes">Brossettes interdentaires (± brosse électrique)</label>
+            <label style="padding-left:26px"><input type="checkbox" id="t_tabac">Conseil de sevrage tabagique</label>
+            <label style="padding-left:26px"><input type="checkbox" id="t_medecin">Courrier au médecin traitant pour l’équilibre glycémique</label>
+            <label><input type="checkbox" id="t_e2"><span>Étape 2 : instrumentation sous-gingivale <span class="inline"><select id="t_mode"><option value="q">par quadrant</option><option value="fm">full-mouth en 24 h</option></select></span> en <span class="inline"><input type="number" id="t_seances" min="1" max="8"> séance(s)</span></span></label>
+            <label style="padding-left:26px"><input type="checkbox" id="t_chx">Bain de bouche à la chlorhexidine, durée limitée</label>
+            <label style="padding-left:26px"><input type="checkbox" id="t_atb">Antibiothérapie adjuvante (amoxicilline + métronidazole), cas sélectionné</label>
+            <label><input type="checkbox" id="t_reeval"><span>Réévaluation à <span class="inline"><input type="number" id="t_semaines" min="4" max="16"> semaines</span></span></label>
+            <label><input type="checkbox" id="t_e3">Étape 3 : traitement des sites résiduels selon la réévaluation</label>
+            <label><input type="checkbox" id="t_adresse">Adressage à un parodontiste</label>
+            <label><input type="checkbox" id="t_e4"><span>Étape 4 : maintenance tous les <span class="inline"><input type="number" id="t_mois" min="2" max="12"> mois</span></span></label>
+            <label><input type="checkbox" id="t_info">Information délivrée au patient, plan de traitement expliqué</label>
+          </div>
+          <details class="tip" open><summary>Les 4 étapes (recommandations EFP S3, 2020)</summary>
+            <p><b>1. Comportement et facteurs de risque.</b> Hygiène répétée à chaque séance, brossettes interdentaires, détartrage supra-gingival, suppression des facteurs de rétention, tabac, diabète, hygiène de vie.</p>
+            <p><b>2. Instrumentation sous-gingivale.</b> Instruments manuels ou ultrasonores, par quadrant ou en full-mouth : résultats équivalents (le full-mouth peut provoquer une réaction inflammatoire générale, à peser selon l’état de santé). Laser en complément : non suggéré. Chlorhexidine : envisageable, sur une durée limitée. Antibiotiques systémiques : pas en routine, à discuter pour des groupes précis, par exemple un adulte jeune avec une parodontite de stade III généralisée. En moyenne, à 6–8 mois, la profondeur baisse de 1,7 mm et le saignement de 63 %.</p>
+            <p><b>Réévaluation.</b> Objectif atteint s’il ne reste <b>aucune poche &gt; 4 mm qui saigne</b> : on passe directement à l’étape 4. Sinon, étape 3.</p>
+            <p><b>3. Sites résiduels.</b> Poches de 4–5 mm : nouvelle instrumentation. Poches ≥ 6 mm (stade III) : lambeau d’accès. Défaut intra-osseux ≥ 3 mm avec poche ≥ 6 mm : chirurgie régénératrice. Furcation II ou III : conserver la molaire reste en général préférable à l’extraction suivie d’un implant.</p>
+            <p><b>4. Maintenance.</b> Tous les 3 à 12 mois selon le risque, avec contrôle de plaque professionnel à chaque séance. L’assiduité du patient conditionne la conservation des dents.</p></details>
+        </div>
+      </form>
+
+      <aside class="result">
+        <div class="dx">
+          <span class="eyebrow">Diagnostic en construction</span>
+          <div class="badges" id="dxBadges"></div>
+          <ul class="why" id="dxWhy"></ul>
+        </div>
+        <div class="report">
+          <div class="bar"><span class="eyebrow">Compte rendu</span><span class="toast" id="toastParo" aria-live="polite"></span><span class="barBtns"><button class="btn" id="wordParo">Fichier Word</button><button class="btn primary" id="copyParo">Copier le texte</button></span></div>
+          <textarea id="outParo" aria-label="Compte rendu parodontal"></textarea>
+        </div>
+      </aside>
+    </div>
+  </section>
+
+  <!-- ================= PANO ================= -->
+  <section id="view-pano" role="tabpanel" hidden>
+    <div class="grid">
+      <form class="steps" id="fPano" autocomplete="off">
+        <div class="step" id="panoLoad">
+          <h2><span class="num">0</span>Charger la panoramique<span class="opt">facultatif</span></h2>
+          <div class="drop" id="panoDrop">
+            <div class="dropEmpty" id="panoEmpty">
+              <p>Glissez l’image ici, collez-la (⌘ V ou Ctrl V), ou</p>
+              <button type="button" class="btn" id="panoPick">Choisir un fichier</button>
+              <p class="opt">JPEG ou PNG. Depuis votre logiciel de radio, exportez le cliché en image.</p>
+            </div>
+            <canvas id="panoCanvas" hidden aria-label="Panoramique chargée"></canvas>
+            <input type="file" id="panoFile" accept="image/*,.jpg,.jpeg,.png,.webp" hidden>
+          </div>
+          <div class="ctl" id="maskCtl" hidden>
+            <span class="maskHint">Tracez un rectangle à la souris sur le nom du patient pour le masquer.</span>
+            <button type="button" class="btn" id="maskTop">Masquer le bandeau du haut</button>
+            <button type="button" class="btn" id="maskBottom">Masquer le bandeau du bas</button>
+            <button type="button" class="btn" id="maskUndo">Annuler le dernier masque</button>
+            <button type="button" class="btn" id="panoChange">Changer d’image</button>
+          </div>
+          <div class="aiBox" id="aiBox" hidden>
+            <label class="inline"><input type="checkbox" id="maskOk"> J’ai masqué le nom, la date de naissance et tout identifiant visible</label>
+            <div class="ctl">
+              <button type="button" class="btn primary" id="aiRun" disabled>Faire lire la panoramique par Claude</button>
+              <button type="button" class="btn" id="aiStop" hidden>Arrêter</button>
+            </div>
+          </div>
+          <p class="panoMsg" id="panoMsg" aria-live="polite"></p>
+          <div class="aiOut" id="aiOut" hidden>
+            <span class="eyebrow">Ce que Claude a relevé</span>
+            <ul id="aiList"></ul>
+            <p class="opt" id="aiLimits"></p>
+          </div>
+          <details class="tip"><summary>Ce que Claude fait, et ses limites</summary>
+            <p>Claude lit l’image dans le même ordre que la grille et pré-remplit les étapes 1 à 6. Chaque champ qu’il a rempli est surligné et marqué « proposé par Claude, à vérifier » : le surlignage disparaît dès que vous le modifiez ou le confirmez. Il peut manquer une lésion ou en voir une qui n’existe pas, et il ne voit pas les caries proximales mieux qu’un œil sur une panoramique. Votre lecture reste la référence. L’image masquée est envoyée à Claude ; les zones noires ne sont pas transmises. Rien n’est conservé dans la page.</p>
+            <p class="only-file" hidden><b>Dans le fichier ouvert dans Chrome ou Safari</b>, la lecture par Claude n’est pas possible : ouvrez la version de l’outil qui se trouve dans Claude. Vous pouvez quand même charger l’image ici pour l’avoir sous les yeux pendant que vous remplissez la grille.</p></details>
+        </div>
+        <details class="tip" open><summary>La règle d’or : toujours lire dans le même ordre</summary>
+          <p>On commence par ce qui est loin des dents, là où l’œil ne va pas spontanément, et on finit par les dents. Ainsi on ne passe pas à côté d’une découverte fortuite (sinus, ATM, canal). Notez les dents en numérotation FDI, séparées par des virgules : 16, 36, 47.</p></details>
+
+        <div class="step">
+          <h2><span class="num">1</span>Le cliché</h2>
+          <div class="fields">
+            <label class="f">Date du cliché <input type="date" id="r_date"></label>
+            <label class="f">Indication
+              <select id="r_indic"><option>bilan bucco-dentaire initial</option><option>bilan parodontal</option><option>bilan pré-implantaire</option><option>évaluation des troisièmes molaires</option><option>douleur ou recherche d’un foyer infectieux</option><option>contrôle</option></select></label>
+            <label class="f">Qualité
+              <select id="r_qual"><option value="ok">Satisfaisante</option><option value="pos">Artefacts de positionnement, lecture possible</option><option value="part">Partiellement ininterprétable</option></select></label>
+          </div>
+          <details class="tip"><summary>À regarder</summary><p>Plan d’occlusion en léger sourire, langue au palais (sinon bande sombre sur les apex maxillaires), pas de dédoublement ni de rétrécissement des incisives. Un mauvais positionnement peut simuler une lésion.</p></details>
+        </div>
+
+        <div class="step">
+          <h2><span class="num">2</span>Structures osseuses et ATM</h2>
+          <div class="fields">
+            <label class="f">Condyles et ATM
+              <select id="r_atm"><option value="ok">Condyles symétriques, sans particularité</option><option value="asym">Asymétrie condylienne</option><option value="remod">Remaniement condylien (aplatissement, ostéophyte)</option></select></label>
+            <label class="f">Os maxillaire et mandibulaire
+              <select id="r_os"><option value="ok">Trame osseuse sans particularité</option><option value="lesion">Image à explorer (voir « Autres »)</option></select></label>
+          </div>
+          <details class="tip"><summary>À regarder</summary><p>Comparer droite et gauche : forme et hauteur des condyles, branches montantes, angle et bord basilaire. Chercher toute image claire ou dense isolée, sans rapport avec un apex.</p></details>
+        </div>
+
+        <div class="step">
+          <h2><span class="num">3</span>Sinus et canal mandibulaire</h2>
+          <div class="fields">
+            <label class="f">Sinus maxillaires
+              <select id="r_sinus"><option value="ok">Sans particularité</option><option value="epai">Épaississement muqueux</option><option value="opac">Opacité sinusienne</option></select></label>
+            <label class="f">Côté (si anomalie)
+              <select id="r_sinusCote"><option value="">—</option><option>droit</option><option>gauche</option><option>bilatéral</option></select></label>
+            <label class="f">Canal mandibulaire
+              <select id="r_canal"><option value="ok">Visible, sans particularité</option><option value="38">Rapport étroit avec 38</option><option value="48">Rapport étroit avec 48</option><option value="both">Rapport étroit avec 38 et 48</option></select></label>
+          </div>
+          <details class="tip"><summary>À regarder</summary><p>Plancher sinusien : continu ou interrompu en regard d’un apex (une lésion d’origine dentaire peut causer une sinusite). Canal mandibulaire : signes de proximité avec une dent de sagesse (interruption de la corticale du canal, assombrissement de la racine, déviation du canal) qui orientent vers un CBCT avant extraction.</p></details>
+        </div>
+
+        <div class="step">
+          <h2><span class="num">4</span>Parodonte</h2>
+          <div class="fields">
+            <label class="f">Alvéolyse
+              <select id="r_alv"><option value="0">Absente</option><option value="h">Horizontale</option><option value="a">Angulaire</option><option value="m">Mixte</option></select></label>
+            <label class="f">Sévérité
+              <select id="r_alvSev"><option value="c">Tiers cervical</option><option value="m">Atteignant le tiers moyen</option><option value="a">Atteignant le tiers apical</option></select></label>
+            <label class="f">Répartition
+              <select id="r_alvRep"><option value="gen">Généralisée</option><option value="loc">Localisée</option></select></label>
+            <label class="f">Dents concernées (si localisée)<input type="text" id="r_alvDents" placeholder="16, 26, 46"></label>
+          </div>
+          <div class="checks"><label><input type="checkbox" id="r_tartre">Tartre sous-gingival visible</label><label><input type="checkbox" id="r_furc">Images de furcation</label></div>
+          <details class="tip"><summary>À regarder</summary><p>Distance entre la jonction amélo-cémentaire et le sommet du septum : au-delà de 2 mm, il y a perte osseuse. Le tiers de racine atteint vous donne directement une idée du stade (tiers cervical : stade I ou II ; tiers moyen ou apical : stade III ou IV).</p></details>
+        </div>
+
+        <div class="step">
+          <h2><span class="num">5</span>Les dents, une par une</h2>
+          <p class="opt" style="margin:0">Une ligne par dent, dans l’ordre de lecture : 18 → 11, 28 → 21, 38 → 31, 48 → 41. Cliquez sur une pastille pour l’activer.</p>
+          <div class="toothScroll"><table class="teeth" id="toothTable"></table></div>
+          <p class="warnline" id="fdiWarn"></p>
+          <details class="tip"><summary>À regarder</summary><p>Parcourez les quadrants 1 → 2 → 3 → 4, toujours dans le même sens. Pour chaque dent : couronne (carie, restauration, débord), racine (traitement canalaire, longueur, densité), apex (lacune, desmodonte élargi). La panoramique sous-estime les caries proximales : une suspicion se confirme par un cliché rétro-coronaire.</p></details>
+        </div>
+
+        <div class="step">
+          <h2><span class="num">6</span>Autres constatations et conduite à tenir</h2>
+          <label class="f">Autres constatations<textarea id="r_autres" placeholder="Ex. : calcification projetée en regard de l’angle mandibulaire gauche"></textarea></label>
+          <div class="checks">
+            <label><input type="checkbox" id="c_retro">Clichés rétro-alvéolaires complémentaires</label>
+            <label><input type="checkbox" id="c_cbct">CBCT à prévoir</label>
+            <label><input type="checkbox" id="c_paro">Bilan parodontal complet (sondage)</label>
+            <label><input type="checkbox" id="c_soins">Plan de soins conservateurs à établir</label>
+            <label><input type="checkbox" id="c_avis">Avis spécialisé à demander</label>
+          </div>
+        </div>
+      </form>
+
+      <aside class="result">
+        <div class="dx">
+          <span class="eyebrow">Synthèse</span>
+          <ul class="why" id="panoWhy"></ul>
+        </div>
+        <div class="report">
+          <div class="bar"><span class="eyebrow">Compte rendu</span><span class="toast" id="toastPano" aria-live="polite"></span><span class="barBtns"><button class="btn" id="wordPano">Fichier Word</button><button class="btn primary" id="copyPano">Copier le texte</button></span></div>
+          <textarea id="outPano" aria-label="Compte rendu de panoramique"></textarea>
+        </div>
+      </aside>
+    </div>
+  </section>
+
+  <p class="foot">Aide à la rédaction fondée sur la classification AAP/EFP 2017 (Tonetti, Greenwell, Kornman), les recommandations EFP S3 2020 et la synthèse du Pr Marjolaine Gosset, <a href="https://www.information-dentaire.fr/actualites/la-nouvelle-classification-des-maladies-parodontales/" target="_blank" rel="noopener">L’Information Dentaire, février 2026</a>. Le diagnostic proposé reste à valider cliniquement. Collez le texte dans le dossier du patient dans votre logiciel.</p>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const v = (id) => $(id).value;
+const n = (id) => { const x = parseFloat(String(v(id)).replace(',', '.')); return isNaN(x) ? null : x; };
+const c = (id) => $(id).checked;
+const fr = (x) => String(x).replace('.', ',');
+const today = () => new Date().toLocaleDateString('fr-FR');
+
+/* ---------- sample data ---------- */
+const SAMPLE_PARO = { p_type: 'init', p_age: 52, p_motif: 'saignements gingivaux', p_tabac: '2', p_diab: '0',
+  p_plaque: 45, p_bop: 38, p_dents: 29, p_cal: 6, p_rbl: 40, p_perdues: 2, p_pd: 7, p_sites5: 8,
+  p_vert: true, p_furc: true, p_mob: false, p_migr: false, p_moins20: false, p_etendue: 'gen', p_gradeforce: 'auto',
+  p_traite: false, p_cas1: true, p_cas2: false, p_nonparo: false, p_crete: '0', p_direct: 'nd', p_pheno: 'B', p_descr: '',
+  t_e1: true, t_brossettes: true, t_tabac: true, t_medecin: false, t_e2: true, t_mode: 'q', t_chx: false, t_atb: false,
+  t_seances: 2, t_reeval: true, t_semaines: 8, t_e3: true,
+  t_adresse: false, t_e4: true, t_mois: 3, t_info: true };
+const SAMPLE_PANO = { r_date: new Date().toISOString().slice(0, 10), r_indic: 'bilan parodontal', r_qual: 'ok', r_atm: 'ok', r_os: 'ok',
+  r_sinus: 'epai', r_sinusCote: 'droit', r_canal: '48', r_alv: 'm', r_alvSev: 'm', r_alvRep: 'gen', r_alvDents: '',
+  r_tartre: true, r_furc: true,
+  r_autres: '', c_retro: true, c_cbct: false, c_paro: true, c_soins: true, c_avis: false };
+
+function fill(data) { for (const [k, val] of Object.entries(data)) { const el = $(k); if (!el) continue; if (el.type === 'checkbox') el.checked = val; else el.value = val; } }
+function clear(form) { form.querySelectorAll('input,select,textarea').forEach((el) => { if (el.type === 'checkbox') el.checked = false; else if (el.tagName === 'SELECT') el.selectedIndex = 0; else el.value = ''; }); }
+
+/* ---------- PARO ---------- */
+const ROMAN = ['', 'I', 'II', 'III', 'IV'];
+function computeParo() {
+  const why = [];
+  const age = n('p_age'), cal = n('p_cal'), rbl = n('p_rbl'), lost = n('p_perdues') || 0, pd = n('p_pd'), bop = n('p_bop');
+  const hasLoss = (cal !== null && cal > 0) || (rbl !== null && rbl > 0);
+  if (cal === null && rbl === null) return { stage: 0, why: ['Renseignez la perte d’attache (CAL) ou l’alvéolyse à l’étape 5 pour obtenir un stade.'] };
+  const gingi = bop !== null && bop >= 10;
+  if (!hasLoss) {
+    return { none: true, label: gingi ? 'Gingivite' : 'Santé parodontale', perio: 'intact',
+      why: [gingi ? `Parodonte intact, BOP de ${bop} % (≥ 10 %) : gingivite induite par la plaque, pas de parodontite.` :
+        'Parodonte intact, BOP < 10 % : santé parodontale.'] };
+  }
+  if (c('p_nonparo')) {
+    return { none: true, label: gingi ? 'Gingivite sur parodonte réduit' : 'Santé sur parodonte réduit', perio: 'reduit',
+      why: [`La perte d’attache a une autre cause qu’une parodontite : parodonte réduit${gingi ? `, avec BOP de ${bop} % → gingivite` : ', BOP < 10 % → santé'}.`,
+        ...(pd !== null && pd > 3 ? [{ t: `Attention : poche de ${fr(pd)} mm. Sur un parodonte réduit sain, on attend des poches ≤ 3 mm. Vérifiez qu’il ne s’agit pas d’une parodontite.`, warn: 1 }] : [])] };
+  }
+  if (!c('p_cas1') && !c('p_cas2')) why.push({ t: 'Définition de cas non cochée à l’étape 4 : vérifiez qu’au moins 2 dents sont atteintes avant de retenir le diagnostic.', warn: 1 });
+  // severity
+  let sev, src;
+  if (cal !== null && cal > 0) { sev = cal >= 5 ? 3 : cal >= 3 ? 2 : 1; src = `CAL max ${fr(cal)} mm`; }
+  else { sev = rbl > 33 ? 3 : rbl >= 15 ? 2 : 1; src = `alvéolyse ${rbl} %`; }
+  why.push({ t: `Sévérité : ${src} → stade ${ROMAN[sev]}.` });
+  if (cal !== null && cal > 0 && rbl !== null && rbl > 0) {
+    const sr = rbl > 33 ? 3 : rbl >= 15 ? 2 : 1;
+    if (sr > sev) { sev = sr; why.push({ t: `L’alvéolyse (${rbl} %) est plus sévère que la CAL ne le suggère → stade ${ROMAN[sev]}.`, up: 1 }); }
+  }
+  let stage = sev;
+  if (lost >= 1 && stage < 3) { stage = 3; why.push({ t: `${lost} dent(s) perdue(s) pour raison parodontale → stade III au minimum.`, up: 1 }); }
+  else if (lost >= 1 && lost <= 4) why.push({ t: `${lost} dent(s) perdue(s) pour raison parodontale : compatible avec le stade III.` });
+  if (lost >= 5) { stage = 4; why.push({ t: `${lost} dents perdues pour raison parodontale (≥ 5) → stade IV.`, up: 1 }); }
+  // complexity
+  const c3 = []; if (pd !== null && pd >= 6) c3.push(`poche de ${fr(pd)} mm`); if (c('p_vert')) c3.push('défaut angulaire ≥ 3 mm'); if (c('p_furc')) c3.push('furcation II/III'); if (v('p_crete') === '3') c3.push('défaut de crête modéré');
+  if (c3.length && stage < 3) { stage = 3; why.push({ t: `Complexité (${c3.join(', ')}) → monte au stade III.`, up: 1 }); }
+  else if (c3.length) why.push({ t: `Facteurs de complexité de stade III présents : ${c3.join(', ')}.` });
+  else if (pd !== null && pd === 5 && stage < 2) { stage = 2; why.push({ t: 'Poche de 5 mm → stade II au minimum.', up: 1 }); }
+  const c4 = []; if (v('p_crete') === '4') c4.push('défaut de crête sévère'); if (c('p_mob')) c4.push('mobilité ≥ 2'); if (c('p_migr')) c4.push('migrations ou effondrement occlusal'); if (c('p_moins20')) c4.push('moins de 20 dents');
+  if (c4.length && stage >= 3 && stage < 4) { stage = 4; why.push({ t: `Besoin de réhabilitation complexe (${c4.join(', ')}) → stade IV.`, up: 1 }); }
+  else if (c4.length && stage < 3) why.push({ t: `${c4.join(', ')} noté, mais sans sévérité de stade III : le stade IV ne s’applique pas. Vérifiez la CAL.` });
+
+  // grade
+  let grade = 'B', gsrc;
+  const direct = v('p_direct');
+  if (direct !== 'nd') {
+    grade = direct;
+    gsrc = `Preuve directe : ${{ A: 'aucune perte', B: 'perte de moins de 2 mm', C: 'perte de 2 mm ou plus' }[direct]} sur 5 ans → grade ${grade}.`;
+  } else if (rbl !== null && rbl > 0 && age) {
+    const r = rbl / age; grade = r < 0.25 ? 'A' : r <= 1 ? 'B' : 'C';
+    gsrc = `Pas de document antérieur, preuve indirecte : ${rbl} % ÷ ${age} ans = ${fr(r.toFixed(2))} → grade ${grade}.`;
+  } else gsrc = 'Ni document antérieur ni rapport alvéolyse/âge calculable : grade B par défaut.';
+  why.push({ t: gsrc, g: 1 });
+  const rank = { A: 0, B: 1, C: 2 }, up = (g, why2) => { if (rank[g] > rank[grade]) { grade = g; why.push({ t: why2, up: 1, g: 1 }); } };
+  if (v('p_pheno') === 'C') up('C', 'Peu de plaque pour beaucoup de destruction → grade C.');
+  if (v('p_pheno') === 'A') why.push({ t: 'Beaucoup de plaque pour peu de destruction : plaide pour une progression lente (grade A).', g: 1 });
+  const tab = v('p_tabac'), diab = v('p_diab');
+  if (tab === '2') up('C', 'Tabac ≥ 10 cigarettes/jour → grade C.'); else if (tab === '1') up('B', 'Tabac < 10 cigarettes/jour → grade B au minimum.');
+  if (diab === '2') up('C', 'Diabète avec HbA1c ≥ 7 % → grade C.'); else if (diab === '1') up('B', 'Diabète équilibré → grade B au minimum.');
+  const forced = v('p_gradeforce');
+  if (forced !== 'auto' && forced !== grade) { why.push({ t: `Grade forcé manuellement à ${forced} (calcul : ${grade}).`, g: 1 }); grade = forced; }
+  // treated patient / reassessment
+  let status = null;
+  const sd = typeof sondSummary === 'function' ? sondSummary() : null;
+  const resid = sd ? sd.r5bop : null, deep6 = sd ? sd.s6 : (pd !== null && pd >= 6 ? 1 : 0);
+  if (c('p_traite') || v('p_type') !== 'init') {
+    const stable = (resid !== null ? resid === 0 : pd !== null && pd <= 4) && bop !== null && bop < 10;
+    status = stable ? 'Parodontite stabilisée' : 'Parodontite non stabilisée';
+    why.push({ t: stable ? 'Patient traité, aucune poche > 4 mm qui saigne et BOP < 10 % : parodonte stabilisé. Il reste à risque : maintenance.' :
+      `Patient traité mais non stabilisé${resid ? ` : ${resid} site(s) > 4 mm qui saignent` : ''}${bop !== null && bop >= 10 ? `, BOP ${bop} %` : ''}.`, warn: stable ? 0 : 1 });
+    if (!stable && sd) {
+      if (sd.r45 > 0) why.push({ t: `${sd.r45} site(s) de 4–5 mm qui saignent → nouvelle instrumentation sous-gingivale.` });
+      if (deep6 > 0) why.push({ t: `${deep6} site(s) ≥ 6 mm → lambeau d’accès à discuter (chirurgie régénératrice si défaut intra-osseux ≥ 3 mm).`, up: 1 });
+    }
+  }
+  return { stage, grade, why, status };
+}
+
+function renderParo() {
+  const r = computeParo();
+  const badges = $('dxBadges'), list = $('dxWhy');
+  badges.innerHTML = ''; list.innerHTML = '';
+  const add = (txt, cls) => { const s = document.createElement('span'); s.className = 'badge ' + cls; s.textContent = txt; badges.appendChild(s); };
+  const ext = { gen: 'généralisée', loc: 'localisée', mi: 'molaires-incisives' }[v('p_etendue')];
+  if (r.none) add(r.label, 's1');
+  else if (r.stage) { add('Stade ' + ROMAN[r.stage], 's' + r.stage); add('Grade ' + r.grade, r.grade === 'A' ? 's1' : r.grade === 'B' ? 's2' : 's4'); add(ext, 's2'); if (r.status) add(r.status, r.status.includes('non') ? 's3' : 's1'); }
+  (r.why || []).forEach((w) => { const li = document.createElement('li'); if (typeof w === 'string') li.textContent = w; else { li.textContent = w.t; if (w.warn) li.className = 'warn'; else if (w.up) li.className = 'up'; } list.appendChild(li); });
+  $('outParo').value = paroText(r, ext);
+}
+
+function paroText(r, ext) {
+  const L = [];
+  const type = { init: 'BILAN PARODONTAL INITIAL', reeval: 'RÉÉVALUATION PARODONTALE', maint: 'SÉANCE DE MAINTENANCE PARODONTALE' }[v('p_type')];
+  L.push(`${type} – ${today()}`, '');
+  const age = n('p_age'); const ctx = [];
+  if (age) ctx.push(`Patient(e) de ${age} ans`);
+  if (v('p_motif')) ctx.push(`motif : ${v('p_motif')}`);
+  if (ctx.length) L.push(ctx.join(', ') + '.');
+  const tab = { '0': 'non-fumeur', ex: 'ancien fumeur', '1': 'fumeur (moins de 10 cigarettes/jour)', '2': 'fumeur (10 cigarettes/jour ou plus)' }[v('p_tabac')];
+  const diab = { '0': 'pas de diabète', '1': 'diabète équilibré (HbA1c < 7 %)', '2': 'diabète déséquilibré (HbA1c ≥ 7 %)' }[v('p_diab')];
+  L.push(`Facteurs de risque : ${tab}, ${diab}.`, '');
+  L.push('EXAMEN CLINIQUE ET RADIOGRAPHIQUE');
+  const ex = [];
+  if (n('p_plaque') !== null) ex.push(`indice de plaque ${n('p_plaque')} %`);
+  if (n('p_bop') !== null) ex.push(`saignement au sondage ${n('p_bop')} %`);
+  if (n('p_dents') !== null) ex.push(`${n('p_dents')} dents présentes`);
+  if (ex.length) L.push(cap(ex.join(', ')) + '.');
+  const ex2 = [];
+  if (n('p_pd') !== null) ex2.push(`profondeur de poche maximale ${fr(n('p_pd'))} mm`);
+  if (n('p_sites5') !== null) ex2.push(`${n('p_sites5')} site(s) ≥ 5 mm`);
+  if (n('p_cal') !== null) ex2.push(`perte d’attache interdentaire maximale ${fr(n('p_cal'))} mm`);
+  if (n('p_rbl') !== null) ex2.push(`alvéolyse maximale de ${n('p_rbl')} % de la longueur radiculaire`);
+  if (ex2.length) L.push(cap(ex2.join(', ')) + '.');
+  const cx = [];
+  if (c('p_vert')) cx.push('défauts osseux angulaires ≥ 3 mm');
+  if (c('p_furc')) cx.push('atteinte(s) de furcation de classe II ou III');
+  if (c('p_mob')) cx.push('mobilités de classe 2 ou plus');
+  if (c('p_migr')) cx.push('migrations dentaires et perturbation de l’occlusion');
+  if (c('p_moins20')) cx.push('moins de 20 dents restantes');
+  if (cx.length) L.push('Présence de ' + cx.join(', ') + '.');
+  const lost = n('p_perdues');
+  if (lost) L.push(`${lost} dent(s) perdue(s) pour raison parodontale.`);
+  const sd = typeof sondSummary === 'function' ? sondSummary() : null;
+  if (sd) {
+    L.push(`Sondage 6 sites par dent (${sd.nb} sites) : ${sd.s4} site(s) ≥ 4 mm, ${sd.s5} ≥ 5 mm, ${sd.s6} ≥ 6 mm ; saignement au sondage ${sd.bop} %.`);
+    if (sd.deepTxt) L.push(`Sites ≥ 5 mm : ${sd.deepTxt}.`);
+    if (sd.furcTxt) L.push(`Atteintes de furcation : ${sd.furcTxt}.`);
+    if (sd.mobTxt) L.push(`Mobilités : ${sd.mobTxt}.`);
+    if (sd.absent.length) L.push(`Dents absentes : ${sd.absent.join(', ')}.`);
+  }
+  L.push('', 'DIAGNOSTIC');
+  if (r.none) L.push({ 'Gingivite': 'Gingivite induite par la plaque sur parodonte intact.', 'Santé parodontale': 'Santé parodontale sur parodonte intact.',
+    'Gingivite sur parodonte réduit': 'Gingivite sur parodonte réduit, sans parodontite (perte d’attache d’une autre origine).',
+    'Santé sur parodonte réduit': 'Santé parodontale sur parodonte réduit, sans parodontite (perte d’attache d’une autre origine).' }[r.label]);
+  else if (r.stage) {
+    const cas = [c('p_cas1') && 'perte d’attache interdentaire sur au moins 2 dents non adjacentes', c('p_cas2') && 'perte d’attache vestibulaire ≥ 3 mm avec poche > 3 mm sur au moins 2 dents'].filter(Boolean);
+    if (cas.length) L.push(`Définition de cas de parodontite remplie : ${cas.join(' ; ')}.`);
+    const descr = v('p_descr').trim();
+    L.push(`Parodontite de stade ${ROMAN[r.stage]}, ${ext}, grade ${r.grade}${descr ? `, associée à : ${descr}` : ''} (classification AAP/EFP 2017).`);
+    if (r.status) L.push(`${r.status}.`);
+    const just = r.why.filter((w) => typeof w !== 'string' && !w.warn).map((w) => '– ' + w.t);
+    if (just.length) L.push('Justification :', ...just);
+  } else L.push('[à compléter]');
+  const plan = [];
+  if (c('t_e1')) plan.push('Étape 1 : enseignement et motivation à l’hygiène bucco-dentaire, détartrage supra-gingival, élimination des facteurs de rétention de plaque et contrôle des facteurs de risque.');
+  if (c('t_brossettes')) plan.push('Utilisation quotidienne de brossettes interdentaires conseillée.');
+  if (c('t_tabac')) plan.push('Conseil de sevrage tabagique délivré.');
+  if (c('t_medecin')) plan.push('Courrier au médecin traitant concernant l’équilibre glycémique.');
+  if (c('t_e2')) plan.push(`Étape 2 : instrumentation sous-gingivale ${v('t_mode') === 'fm' ? 'en full-mouth sur 24 h' : 'par quadrant'}${n('t_seances') ? ` en ${n('t_seances')} séance(s)` : ''}.`);
+  if (c('t_chx')) plan.push('Bain de bouche à la chlorhexidine en complément, sur une durée limitée.');
+  if (c('t_atb')) plan.push('Antibiothérapie systémique adjuvante (amoxicilline + métronidazole) dans ce cas sélectionné.');
+  if (c('t_reeval')) plan.push(`Réévaluation${n('t_semaines') ? ` à ${n('t_semaines')} semaines` : ''} : objectif, aucune poche > 4 mm qui saigne.`);
+  if (c('t_e3')) {
+    const sd2 = typeof sondSummary === 'function' ? sondSummary() : null;
+    if (sd2 && v('p_type') !== 'init' && (sd2.r45 || sd2.s6)) {
+      if (sd2.r45) plan.push(`Étape 3 : nouvelle instrumentation des ${sd2.r45} site(s) résiduel(s) de 4–5 mm qui saignent.`);
+      if (sd2.s6) plan.push(`Étape 3 : traitement chirurgical (lambeau d’accès, ou chirurgie régénératrice en cas de défaut intra-osseux) des ${sd2.s6} site(s) ≥ 6 mm.`);
+    } else plan.push('Étape 3 : après réévaluation, nouvelle instrumentation des poches résiduelles de 4–5 mm et chirurgie des poches ≥ 6 mm.');
+  }
+  if (c('t_adresse')) plan.push('Adressage à un parodontiste pour prise en charge spécialisée.');
+  if (c('t_e4')) plan.push(`Étape 4 : maintenance parodontale${n('t_mois') ? ` tous les ${n('t_mois')} mois` : ''}.`);
+  if (c('t_info')) plan.push('Le diagnostic et le plan de traitement ont été expliqués au patient.');
+  if (plan.length) L.push('', 'PLAN DE TRAITEMENT', ...plan.map((p) => '– ' + p));
+  return L.join('\n');
+}
+const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+
+/* ---------- PANO ---------- */
+function fdi(id) {
+  const raw = v(id).trim(); if (!raw) return { list: [], bad: [] };
+  const toks = raw.split(/[^0-9]+/).filter(Boolean), list = [], bad = [];
+  toks.forEach((t) => { const q = +t[0], d = +t[1]; const ok = t.length === 2 && ((q >= 1 && q <= 4 && d >= 1 && d <= 8) || (q >= 5 && q <= 8 && d >= 1 && d <= 5)); (ok ? list : bad).push(t); });
+  return { list, bad };
+}
+/* Tooth-by-tooth reading: one record per tooth, in reading order. */
+const READ_Q = [[18, 17, 16, 15, 14, 13, 12, 11], [28, 27, 26, 25, 24, 23, 22, 21], [38, 37, 36, 35, 34, 33, 32, 31], [48, 47, 46, 45, 44, 43, 42, 41]];
+const READ_ORDER = READ_Q.flat();
+const ST = { present: 'présente', absente: 'absente', implant: 'implant', reste: 'reste radiculaire', incluse: 'incluse ou semi-incluse', nv: 'non lisible' };
+const FL = [  // [key, chip label, report wording]
+  ['carie', 'Carie ?', 'carie suspectée'], ['resto', 'Restaurée', 'restaurée'], ['restoDef', 'Resto. défectueuse', 'restauration défectueuse'],
+  ['couronne', 'Couronne', 'couronne prothétique'], ['endo', 'Endo', 'traitée endodontiquement'], ['endoIns', 'Endo insuffisante', 'obturation canalaire insuffisante'],
+  ['peri', 'Périapicale', 'image radioclaire périapicale'],
+];
+const ALV = { '': '—', c: 'tiers cervical', m: 'tiers moyen', a: 'tiers apical' };
+let T = {};
+function resetTeeth() { T = {}; READ_ORDER.forEach((t) => (T[t] = { st: 'present', f: new Set(), alv: '', note: '', ai: false })); }
+resetTeeth();
+function renderTeeth() {
+  const tb = $('toothTable'); let h = '<thead><tr><th>Dent</th><th>Statut</th><th>Constats</th><th>Alvéolyse</th><th>Remarque</th></tr></thead>';
+  READ_Q.forEach((q, qi) => {
+    h += `<tbody><tr class="qrow"><th colspan="5">Quadrant ${qi + 1}</th></tr>`;
+    q.forEach((t) => {
+      const r = T[t], off = r.st === 'absente' || r.st === 'nv';
+      h += `<tr data-t="${t}" class="${r.ai ? 'ai' : ''}${r.st === 'absente' ? ' gone' : ''}"><td class="tn2">${t}</td>`;
+      h += `<td><select data-k="st" aria-label="Statut de ${t}">${Object.entries(ST).map(([k, l]) => `<option value="${k}"${r.st === k ? ' selected' : ''}>${l}</option>`).join('')}</select></td>`;
+      h += `<td><div class="chips">${off ? '' : FL.map(([k, l]) => `<button type="button" class="tchip${r.f.has(k) ? ' on' : ''}${k === 'peri' || k === 'endoIns' || k === 'restoDef' || k === 'carie' ? ' warnc' : ''}" data-f="${k}" aria-pressed="${r.f.has(k)}">${l}</button>`).join('')}</div></td>`;
+      h += `<td>${off ? '' : `<select data-k="alv" aria-label="Alvéolyse de ${t}">${Object.entries(ALV).map(([k, l]) => `<option value="${k}"${r.alv === k ? ' selected' : ''}>${l}</option>`).join('')}</select>`}</td>`;
+      h += `<td><input type="text" data-k="note" aria-label="Remarque sur ${t}" value="${xe(r.note).replace(/"/g, '&quot;')}"></td></tr>`;
+    });
+    h += '</tbody>';
+  });
+  tb.innerHTML = h;
+}
+$('toothTable').addEventListener('click', (e) => {
+  const b = e.target.closest('button[data-f]'); if (!b) return;
+  const t = +b.closest('tr').dataset.t, k = b.dataset.f, r = T[t];
+  if (r.f.has(k)) r.f.delete(k); else { r.f.add(k); if (k === 'endoIns') r.f.add('endo'); if (k === 'restoDef') r.f.add('resto'); }
+  r.ai = false; renderTeeth(); renderPano();
+});
+$('toothTable').addEventListener('change', (e) => {
+  const el = e.target, tr = el.closest('tr[data-t]'); if (!tr || !el.dataset.k) return;
+  const r = T[+tr.dataset.t]; r[el.dataset.k] = el.value; r.ai = false;
+  if (el.dataset.k === 'st' && (el.value === 'absente' || el.value === 'nv')) { r.f.clear(); r.alv = ''; }
+  renderTeeth(); renderPano();
+});
+$('toothTable').addEventListener('input', (e) => {
+  const el = e.target, tr = el.closest('tr[data-t]'); if (!tr || el.dataset.k !== 'note') return;
+  T[+tr.dataset.t].note = el.value; renderPano();
+});
+function samplePanoTeeth() {
+  resetTeeth();
+  [18, 28, 36].forEach((t) => (T[t].st = 'absente')); T[48].st = 'incluse'; T[48].note = 'proche du canal mandibulaire';
+  T[25].f.add('carie'); T[46].f = new Set(['endo', 'endoIns', 'peri', 'resto']); T[16].f.add('couronne'); T[26].f.add('resto');
+  [16, 17, 26, 27, 37, 46, 47].forEach((t) => (T[t].alv = 'm')); [11, 21, 31, 41].forEach((t) => (T[t].alv = 'c'));
+  renderTeeth();
+}
+const teethWith = (pred) => READ_ORDER.filter((t) => pred(T[t]));
+function toothLine(t) {
+  const r = T[t], parts = [];
+  if (r.st === 'absente') parts.push('absente');
+  else if (r.st === 'nv') parts.push('non lisible sur ce cliché');
+  else {
+    if (r.st !== 'present') parts.push(ST[r.st]);
+    FL.forEach(([k, , w]) => { if (r.f.has(k) && !(k === 'endo' && r.f.has('endoIns')) && !(k === 'resto' && r.f.has('restoDef'))) parts.push(w); });
+    if (r.alv) parts.push(`alvéolyse au ${ALV[r.alv]}`);
+    if (!parts.length) parts.push('sans particularité');
+  }
+  return `${t} : ${parts.join(', ')}${r.note.trim() ? ' (' + r.note.trim() + ')' : ''}.`;
+}
+
+function renderPano() {
+  const L = [], syn = [], bad = [];
+  const d = v('r_date') ? new Date(v('r_date') + 'T12:00').toLocaleDateString('fr-FR') : '[date]';
+  L.push(`COMPTE RENDU DE RADIOGRAPHIE PANORAMIQUE – cliché du ${d}`, '');
+  L.push(`Indication : ${v('r_indic')}.`);
+  L.push('Qualité : ' + { ok: 'cliché de qualité satisfaisante.', pos: 'artefacts de positionnement, lecture possible.', part: 'cliché partiellement ininterprétable.' }[v('r_qual')]);
+  if (v('r_qual') === 'part') syn.push({ t: 'Cliché partiellement ininterprétable : pensez à refaire ou compléter par des rétro-alvéolaires.', up: 1 });
+  L.push('', 'STRUCTURES OSSEUSES');
+  L.push('ATM : ' + { ok: 'condyles symétriques, sans particularité.', asym: 'asymétrie condylienne.', remod: 'remaniement condylien (aplatissement, ostéophyte).' }[v('r_atm')]);
+  L.push(v('r_os') === 'ok' ? 'Trame osseuse maxillaire et mandibulaire sans particularité.' : 'Image osseuse à explorer (voir autres constatations).');
+  const sc = v('r_sinusCote') ? ' ' + v('r_sinusCote') : '';
+  L.push('Sinus maxillaires : ' + { ok: 'sans particularité.', epai: `épaississement muqueux${sc}.`, opac: `opacité sinusienne${sc}.` }[v('r_sinus')]);
+  if (v('r_sinus') !== 'ok') syn.push({ t: 'Anomalie sinusienne : vérifiez si un apex est en regard (origine dentaire possible).', up: 1 });
+  L.push('Canal mandibulaire : ' + { ok: 'visible, sans particularité.', '38': 'rapport étroit avec 38.', '48': 'rapport étroit avec 48.', both: 'rapport étroit avec 38 et 48.' }[v('r_canal')]);
+  if (v('r_canal') !== 'ok') syn.push({ t: 'Proximité du canal mandibulaire : un CBCT est recommandé avant toute extraction de la dent concernée.', up: 1 });
+  L.push('', 'PARODONTE');
+  if (v('r_alv') === '0') L.push('Pas d’alvéolyse décelable.');
+  else {
+    const typ = { h: 'horizontale', a: 'angulaire', m: 'mixte, horizontale et angulaire' }[v('r_alv')];
+    const sev = { c: 'limitée au tiers cervical', m: 'atteignant le tiers moyen radiculaire', a: 'atteignant le tiers apical' }[v('r_alvSev')];
+    const fd = fdi('r_alvDents'); bad.push(...fd.bad);
+    const rep = v('r_alvRep') === 'gen' ? 'généralisée' : 'localisée' + (fd.list.length ? ` (${fd.list.join(', ')})` : '');
+    L.push(`Alvéolyse ${typ}, ${rep}, ${sev}.`);
+    syn.push({ t: v('r_alvSev') === 'c' ? 'Alvéolyse au tiers cervical : orientation vers un stade I ou II, à confirmer au sondage.' : 'Alvéolyse au tiers moyen ou apical : orientation vers un stade III ou IV, à confirmer au sondage.' });
+  }
+  if (c('r_tartre')) L.push('Tartre sous-gingival visible.');
+  if (c('r_furc')) L.push('Images radioclaires inter-radiculaires évoquant des atteintes de furcation.');
+  L.push('', 'DENTS, LECTURE DENT PAR DENT');
+  const abs = teethWith((r) => r.st === 'absente');
+  if (abs.length) L.push(`Dents absentes : ${abs.join(', ')}.`);
+  READ_Q.forEach((q, qi) => { L.push(`Quadrant ${qi + 1}`); q.forEach((t) => L.push('– ' + toothLine(t))); });
+  const peri = teethWith((r) => r.f.has('peri')), endoIns = teethWith((r) => r.f.has('endoIns')), car = teethWith((r) => r.f.has('carie'));
+  const rest = teethWith((r) => r.st === 'reste'), incl = teethWith((r) => r.st === 'incluse');
+  if (peri.length) syn.push({ t: `Image(s) périapicale(s) en ${peri.join(', ')} : confirmer par un cliché rétro-alvéolaire et des tests de vitalité.`, up: 1 });
+  if (endoIns.length) syn.push({ t: `Obturation(s) insuffisante(s) en ${endoIns.join(', ')} : discuter une reprise de traitement.` });
+  if (car.length) syn.push({ t: `Carie(s) suspectée(s) en ${car.join(', ')} : la panoramique sous-estime les caries proximales, confirmer par des clichés rétro-coronaires.` });
+  if (rest.length) syn.push({ t: `Reste(s) radiculaire(s) en ${rest.join(', ')} : extraction à discuter.`, up: 1 });
+  if (incl.length) syn.push({ t: `Dent(s) incluse(s) ou semi-incluse(s) : ${incl.join(', ')}.` });
+  const aiN = teethWith((r) => r.ai).length;
+  if (aiN) syn.push({ t: `${aiN} ligne(s) du tableau des dents proposée(s) par Claude : à vérifier sur l’image.` });
+  if (v('r_autres').trim()) { L.push('', 'AUTRES CONSTATATIONS', v('r_autres').trim()); syn.push({ t: 'Découverte fortuite notée : pensez à la mentionner au patient et à prévoir le suivi.', up: 1 }); }
+  const cc = [];
+  if (c('c_retro')) cc.push('clichés rétro-alvéolaires complémentaires');
+  if (c('c_cbct')) cc.push('examen CBCT');
+  if (c('c_paro')) cc.push('bilan parodontal complet avec sondage');
+  if (c('c_soins')) cc.push('plan de soins conservateurs à établir');
+  if (c('c_avis')) cc.push('avis spécialisé');
+  if (cc.length) L.push('', 'CONDUITE À TENIR', cap(cc.join(', ')) + '.');
+  $('outPano').value = L.join('\n');
+  $('fdiWarn').textContent = bad.length ? `Numéro(s) non reconnu(s) en notation FDI : ${[...new Set(bad)].join(', ')}. Format attendu : 11 à 48 (dents permanentes) ou 51 à 85 (dents temporaires).` : '';
+  const ul = $('panoWhy'); ul.innerHTML = '';
+  if (!syn.length) syn.push({ t: 'Aucun point d’attention particulier relevé.' });
+  syn.forEach((w) => { const li = document.createElement('li'); li.textContent = w.t; if (w.up) li.className = 'up'; ul.appendChild(li); });
+}
+
+/* ---------- SONDAGE ---------- */
+const Q1 = [18,17,16,15,14,13,12,11], Q2 = [21,22,23,24,25,26,27,28], Q4 = [48,47,46,45,44,43,42,41], Q3 = [31,32,33,34,35,36,37,38];
+const UP = [...Q1, ...Q2], LO = [...Q4, ...Q3];               // chart order, left to right
+const leftSide = (t) => t < 20 || (t > 40 && t < 50);
+const dispPos = (t) => leftSide(t) ? ['D', 'C', 'M'] : ['M', 'C', 'D']; // left-to-right on screen
+const POSNAME = { D: 'distal', C: 'centre', M: 'mésial' }, FACENAME = { V: 'vestibulaire', P: 'palatin', L: 'lingual' };
+// Quadrant by quadrant, distal tooth to midline: 18→11, 28→21, 38→31, 48→41.
+// In each quadrant: the whole vestibular face, then the whole palatal / lingual face. Each tooth: distal → centre → mésial.
+const SEQ = [], DCM = ['D', 'C', 'M'];
+const SOND_Q = [[18, 17, 16, 15, 14, 13, 12, 11], [28, 27, 26, 25, 24, 23, 22, 21], [38, 37, 36, 35, 34, 33, 32, 31], [48, 47, 46, 45, 44, 43, 42, 41]];
+function buildSeq() {
+  SEQ.length = 0;
+  const pass = (teeth, f) => teeth.forEach((t) => DCM.forEach((p) => SEQ.push({ t, f, p })));
+  SOND_Q.forEach((q) => { pass(q, 'V'); pass(q, q[0] < 30 ? 'P' : 'L'); });
+  S.cur = 0; S.history = []; S.last = -1;
+}
+const key = (s) => `${s.t}${s.f}${s.p}`;
+const S = { vals: {}, bop: {}, furc: {}, mob: {}, absent: new Set(), cur: 0, last: -1, history: [] };
+
+function nextIdx(i) { while (i < SEQ.length && S.absent.has(SEQ[i].t)) i++; return i; }
+function prevIdx(i) { i--; while (i >= 0 && S.absent.has(SEQ[i].t)) i--; return i; }
+let audio;
+function beep(freq) {
+  try { audio = audio || new (window.AudioContext || window.webkitAudioContext)(); const o = audio.createOscillator(), g = audio.createGain();
+    o.frequency.value = freq; g.gain.setValueAtTime(0.08, audio.currentTime); g.gain.exponentialRampToValueAtTime(0.001, audio.currentTime + 0.12);
+    o.connect(g); g.connect(audio.destination); o.start(); o.stop(audio.currentTime + 0.13); } catch (e) {}
+}
+let talking = false, talkEnd = 0;   // so the microphone does not hear the page announcing "17, vestibulaire"
+const echoing = () => talking || Date.now() - talkEnd < 700;
+function say(txt) {
+  if (!c('speak')) return;
+  try {
+    speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(txt); u.lang = 'fr-FR'; u.rate = 1.15;
+    talking = true; lastSaid = txt; u.onend = u.onerror = () => { talkEnd = Date.now(); talking = false; };
+    speechSynthesis.speak(u);
+  } catch (e) { talking = false; }
+}
+function moveTo(i, announce = true) {
+  const before = SEQ[S.cur]; S.cur = nextIdx(i);
+  const after = SEQ[S.cur];
+  if (announce && after) {
+    if (!before || before.f !== after.f) say(`${FACENAME[after.f]}, ${after.t}`);
+    else if (before.t !== after.t) say(String(after.t));
+  }
+  if (!after) say('Sondage terminé');
+}
+function act(k) {
+  if (k === 'bop') { if (S.last >= 0) { const kk = key(SEQ[S.last]); S.bop[kk] = !S.bop[kk]; beep(440); flash(`Saignement ${S.bop[kk] ? 'noté' : 'retiré'} en ${SEQ[S.last].t}`); } }
+  else if (k === 'undo') { const i = S.history.pop(); if (i !== undefined) { const kk = key(SEQ[i]); delete S.vals[kk]; delete S.bop[kk]; S.last = S.history.length ? S.history[S.history.length - 1] : -1; S.cur = i; say(String(SEQ[i].t)); flash('Dernier site effacé'); } }
+  else if (k === 'abs') { const s = SEQ[S.cur]; if (s) { S.absent.add(s.t); clearTooth(s.t); flash(`${s.t} marquée absente`); moveTo(S.cur); } }
+  else if (k === 'skip') { if (S.cur < SEQ.length) moveTo(S.cur + 1); }
+  else if (typeof k === 'number') {
+    if (S.cur >= SEQ.length) { flash('Sondage terminé : cliquez sur un site pour le corriger.'); return; }
+    S.vals[key(SEQ[S.cur])] = k; S.last = S.cur; S.history.push(S.cur); beep(k >= 5 ? 520 : 880); moveTo(S.cur + 1);
+  }
+  renderSond();
+}
+function clearTooth(t) { SEQ.forEach((s) => { if (s.t === t) { delete S.vals[key(s)]; delete S.bop[key(s)]; } }); S.history = S.history.filter((i) => SEQ[i].t !== t); }
+let flashT; function flash(m) { $('lastMsg').textContent = m; clearTimeout(flashT); flashT = setTimeout(() => ($('lastMsg').textContent = ''), 3000); }
+
+// Words → actions. Includes the words speech recognition often writes instead of a French digit.
+const WORDS = { zero: 0, un: 1, une: 1, hein: 1, deux: 2, deu: 2, de: 2, eux: 2, trois: 3, troie: 3, toi: 3, quatre: 4, quatres: 4, cat: 4, katre: 4,
+  cinq: 5, cinque: 5, saint: 5, sein: 5, sain: 5, six: 6, si: 6, scie: 6, sis: 6, sept: 7, set: 7, cet: 7, cette: 7, huit: 8, uite: 8, neuf: 9, oeuf: 9,
+  dix: 10, dis: 10, dit: 10, onze: 11, douze: 12,
+  saigne: 'bop', saignent: 'bop', saignement: 'bop', sang: 'bop', saignant: 'bop', saignante: 'bop', signe: 'bop', bop: 'bop', plus: 'bop',
+  retour: 'undo', annule: 'undo', annuler: 'undo', efface: 'undo', effacer: 'undo', erreur: 'undo',
+  absente: 'abs', absent: 'abs', absentes: 'abs', manque: 'abs', manquante: 'abs', extraite: 'abs',
+  passe: 'skip', suivant: 'skip', passer: 'skip', suivante: 'skip' };
+const normTxt = (t) => t.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
+// Turn a transcript into a list of actions without applying them. Multi-digit numbers are read digit by digit
+// ("323" = 3, 2, 3), except 10 ("dix"), since a single pocket above 10 mm is dictated as "dix".
+function tokens(text) {
+  const out = [];
+  normTxt(text).split(' ').filter(Boolean).forEach((w) => {
+    if (/^\d+$/.test(w)) { if (w === '10') out.push(10); else w.split('').forEach((d) => out.push(+d)); }
+    else if (w in WORDS) out.push(WORDS[w]);
+  });
+  return out;
+}
+const actName = (a) => (typeof a === 'number' ? String(a) : { bop: 'saigne', abs: 'absente', undo: 'retour', skip: 'passe' }[a]);
+function parseSpoken(text) { const a = tokens(text); a.forEach(act); return a; }
+let capT;
+$('cap').addEventListener('keydown', (e) => {
+  const map = { '+': 'bop', '*': 'bop', '-': 'undo', '/': 'abs', 'Enter': 'skip' };
+  if (/^[0-9]$/.test(e.key) && !e.isComposing) { e.preventDefault(); act(+e.key); }
+  else if (e.key in map) { e.preventDefault(); act(map[e.key]); }
+});
+document.addEventListener('keydown', (e) => {   // keypad still works after tapping an on-screen button
+  if (cur !== 'sond' || e.target === $('cap') || /INPUT|SELECT|TEXTAREA/.test(e.target.tagName)) return;
+  const map = { '+': 'bop', '*': 'bop', '-': 'undo', '/': 'abs' };
+  if (/^[0-9]$/.test(e.key)) { e.preventDefault(); act(+e.key); } else if (e.key in map) { e.preventDefault(); act(map[e.key]); }
+});
+// Show the dictation method for this computer (Mac at home, Windows at the practice).
+const IS_MAC = /Mac|iPhone|iPad/i.test(navigator.platform || '') || /Mac OS X/i.test(navigator.userAgent || '');
+document.querySelectorAll('.os-name').forEach((e) => (e.textContent = IS_MAC ? 'du Mac' : 'Windows'));
+document.querySelectorAll('.os-key').forEach((e) => (e.textContent = IS_MAC ? 'appuyez deux fois sur fn (🌐)' : 'appuyez sur Windows + H'));
+document.querySelectorAll('.only-mac').forEach((e) => (e.hidden = !IS_MAC));
+document.querySelectorAll('.only-win').forEach((e) => (e.hidden = IS_MAC));
+$('cap').placeholder = IS_MAC ? 'fn fn, puis « 3 2 3 saigne 4 »' : 'Windows + H, puis « 3 2 3 saigne 4 »';
+
+// Built-in microphone (works when the page is opened as a file in Chrome or Safari, not inside the Claude app).
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+let rec = null, micWanted = false, restartT = null, fails = 0, lastSaid = '';
+function micState(on, msg, err) {
+  $('micBtn').classList.toggle('on', on);
+  $('micBtn').textContent = on ? '⏹ Arrêter le micro' : '🎙 Activer le micro';
+  if (msg !== undefined) { $('micMsg').textContent = msg; $('micMsg').classList.toggle('err', !!err); }
+}
+// Words the page itself says, removed from what the microphone hears right after an announcement.
+const TEEN = { 11: 'onze', 12: 'douze', 13: 'treize', 14: 'quatorze', 15: 'quinze', 16: 'seize', 17: 'dix sept', 18: 'dix huit' };
+const TENS = { 2: 'vingt', 3: 'trente', 4: 'quarante' }, UNITS = ['', 'un', 'deux', 'trois', 'quatre', 'cinq', 'six', 'sept', 'huit'];
+const frNum = (n) => TEEN[n] || (TENS[Math.floor(n / 10)] + (n % 10 === 1 ? ' et un' : n % 10 ? ' ' + UNITS[n % 10] : ''));
+function stripEcho(text) {
+  if (!echoing()) return text;
+  let t = ' ' + normTxt(text) + ' ';
+  normTxt(lastSaid).split(' ').filter(Boolean).forEach((w) => {
+    t = t.replace(' ' + w + ' ', ' ');
+    if (/^\d\d$/.test(w)) t = t.replace(' ' + frNum(+w) + ' ', ' ');   // "dix-sept" written in letters
+  });
+  return t.replace(/\b(vestibulaire|palatin|lingual|termine|sondage)\b/g, ' ');
+}
+function logHeard(raw, actions, ignored) {
+  const li = document.createElement('li');
+  if (ignored) { li.className = 'ign'; li.textContent = `« ${raw.trim()} » : annonce de la page, ignorée`; }
+  else if (!actions.length) { li.className = 'bad'; li.textContent = `« ${raw.trim()} » : pas compris, répétez`; beep(220); setTimeout(() => beep(200), 140); }
+  else li.textContent = `« ${raw.trim()} » → ${actions.map(actName).join(' · ')}`;
+  const ul = $('heardLog'); ul.prepend(li); while (ul.children.length > 6) ul.lastChild.remove();
+}
+function handleResult(res) {
+  // Try each alternative the recogniser offers; keep the first one that gives something usable.
+  const alts = []; for (let j = 0; j < res.length; j++) alts.push(res[j].transcript);
+  for (const raw of alts) {
+    const clean = stripEcho(raw), acts = tokens(clean);
+    if (acts.length) { acts.forEach(act); logHeard(raw, acts); return; }
+  }
+  const raw = alts[0] || '';
+  if (echoing() && !tokens(stripEcho(raw)).length) logHeard(raw, [], true); else logHeard(raw, []);
+}
+// The microphone is opened ONCE per session and kept open (micStream): with a page opened as a file,
+// the browser does not remember the permission, and every fresh opening could ask again.
+// The same recogniser is reused for every restart, for the same reason.
+let micStream = null, recLive = false;
+async function openMicOnce() {
+  if (micStream && micStream.getAudioTracks().some((t) => t.readyState === 'live')) return true;
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return true;
+  try { micStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } }); return true; }
+  catch (e) { micStream = null; return false; }
+}
+function closeMic() { if (micStream) { micStream.getTracks().forEach((t) => t.stop()); micStream = null; } }
+function makeRec() {
+  rec = new SR(); rec.lang = 'fr-FR'; rec.continuous = true; rec.interimResults = false; rec.maxAlternatives = 5;
+  rec.onstart = () => { recLive = true; fails = 0; micState(true, 'Micro actif : dictez. Il reste ouvert jusqu’à ce que vous l’arrêtiez.'); };
+  rec.onresult = (ev) => { for (let i = ev.resultIndex; i < ev.results.length; i++) if (ev.results[i].isFinal) handleResult(ev.results[i]); };
+  rec.onerror = (ev) => {
+    if (ev.error === 'not-allowed' || ev.error === 'service-not-allowed') {
+      micWanted = false; closeMic();
+      micState(false, window.self !== window.top ? 'Le micro est bloqué dans l’application Claude. Ouvrez le fichier « Bilan paro guidé » dans Chrome ou Safari.' : 'Le micro est refusé : autorisez-le pour cette page (icône à gauche de l’adresse), puis réessayez.', true);
+    } else if (ev.error === 'network') micState(true, 'Connexion internet perdue un instant : le micro se relance…', true);
+    else if (ev.error === 'audio-capture') micState(true, 'Aucun micro détecté : vérifiez qu’il est branché. Nouvel essai…', true);
+  };
+  // The browser closes the microphone on its own after a pause or a glitch: reopen it at once, without a click.
+  rec.onend = () => {
+    recLive = false;
+    if (!micWanted) { micState(false, 'Micro arrêté.'); return; }
+    fails++; restartT = setTimeout(startRec, fails > 3 ? 1500 : 150);
+  };
+}
+function startRec() {
+  clearTimeout(restartT); restartT = null;
+  if (!micWanted || recLive) return;
+  if (!rec) makeRec();
+  try { rec.start(); } catch (e) { fails++; restartT = setTimeout(startRec, 800); }
+}
+if (SR) {
+  $('micBtn').hidden = false;
+  $('micBtn').onclick = async () => {
+    if (micWanted) { micWanted = false; clearTimeout(restartT); try { rec && rec.stop(); } catch (e) {} closeMic(); micState(false, 'Micro arrêté.'); return; }
+    micWanted = true; fails = 0;
+    if (!(await openMicOnce())) {
+      micWanted = false;
+      micState(false, 'Le micro est refusé : autorisez-le pour cette page (icône à gauche de l’adresse), puis réessayez.', true); return;
+    }
+    startRec();
+    if (SEQ[S.cur]) say(`${FACENAME[SEQ[S.cur].f]}, ${SEQ[S.cur].t}`);
+  };
+  // If the browser silently stops listening, restart it (same recogniser, microphone already open).
+  setInterval(() => { if (micWanted && !restartT && !recLive) startRec(); }, 4000);
+}
+
+// System dictation writes into the field (sometimes as a composition); read it once it settles.
+// macOS can still revise the last words for a moment, so wait a little longer there.
+const SETTLE = IS_MAC ? 1100 : 700;
+let composing = false;
+function flushCap() {
+  if (composing) return;
+  const t = $('cap').value; if (!t.trim()) return;
+  $('cap').value = ''; logHeard(t, parseSpoken(t));
+}
+$('cap').addEventListener('compositionstart', () => { composing = true; });
+$('cap').addEventListener('compositionend', () => { composing = false; clearTimeout(capT); capT = setTimeout(flushCap, 300); });
+$('cap').addEventListener('input', () => { clearTimeout(capT); capT = setTimeout(flushCap, SETTLE); });
+document.querySelectorAll('.pad button').forEach((b) => b.addEventListener('click', () => { const k = b.dataset.k; act(/^\d+$/.test(k) ? +k : k); }));
+$('undoBtn').onclick = () => act('undo'); $('absBtn').onclick = () => act('abs');
+
+function sondSummary() {
+  const measured = Object.entries(S.vals);
+  if (!measured.length) return null;
+  const vals = measured.map(([, x]) => x), nb = vals.length;
+  const bopN = Object.entries(S.bop).filter(([k, b]) => b && k in S.vals).length;
+  const deep = {};
+  SEQ.forEach((s) => { const x = S.vals[key(s)]; if (x >= 5) (deep[s.t] = deep[s.t] || []).push(`${s.f} ${s.p} ${x}`); });
+  const teeth = Object.keys(deep).map(Number).sort((a, b) => a - b);
+  const bled = (k) => S.bop[k] && k in S.vals;
+  const r45 = measured.filter(([k, x]) => (x === 4 || x === 5) && bled(k)).length;   // residual 4–5 mm with BOP (re-instrument)
+  const r5bop = measured.filter(([k, x]) => x >= 5 && bled(k)).length;              // > 4 mm that bleed: step-2 success criterion
+  const fur = Object.entries(S.furc).filter(([k]) => !S.absent.has(+k.split('|')[0]))
+    .sort(([a], [b]) => +a.split('|')[0] - +b.split('|')[0])
+    .map(([k, v]) => { const [t, s] = k.split('|'); const sl = furcSlots(+t).find((f) => f.s === s); return { t, name: sl ? sl.name : s, v }; });
+  const furcTxt = fur.filter((f) => f.v > 0).map((f) => `${f.t} ${f.name} classe ${ROM[f.v]}`).join(' ; ');
+  const mobs = Object.entries(S.mob).filter(([t, m]) => m > 0 && !S.absent.has(+t)).sort(([a], [b]) => a - b);
+  const mobTxt = mobs.map(([t, m]) => `${t} (${m})`).join(', ');
+  return { furcTxt, mobTxt, furc23: fur.some((f) => f.v >= 2), mob2: mobs.some(([, m]) => m >= 2), r45, r5bop, nb, max: Math.max(...vals), s4: vals.filter((x) => x >= 4).length, s5: vals.filter((x) => x >= 5).length, s6: vals.filter((x) => x >= 6).length,
+    bop: Math.round((bopN / nb) * 100), present: 32 - S.absent.size, absent: [...S.absent].sort((a, b) => a - b),
+    deepTxt: teeth.map((t) => `${t} (${deep[t].join(', ')})`).join(' ; ') };
+}
+
+function renderSond() {
+  const s = SEQ[S.cur];
+  $('nowBox').classList.toggle('done', !s);
+  $('nowTooth').textContent = s ? s.t : 'Terminé';
+  $('nowFace').textContent = s ? FACENAME[s.f] : '';
+  $('nowSite').textContent = s ? `site ${POSNAME[s.p]} · ${S.cur + 1 - SEQ.slice(0, S.cur).filter((x) => S.absent.has(x.t)).length} / ${SEQ.length - S.absent.size * 6}` : 'Cliquez sur un site du schéma pour corriger une valeur.';
+  $('chart').innerHTML = chartSVG();
+  const sum = sondSummary(), st = $('sondStats');
+  st.innerHTML = sum ? `<span>Sites mesurés</span><b>${sum.nb}</b><span>Poche maximale</span><b>${sum.max} mm</b><span>Sites ≥ 4 mm</span><b>${sum.s4}</b><span>Sites ≥ 5 mm</span><b>${sum.s5}</b><span>Sites ≥ 6 mm</span><b>${sum.s6}</b><span>Saignement au sondage</span><b>${sum.bop} %</b><span>Dents présentes</span><b>${sum.present}</b>` + (sum.deepTxt ? `<span class="sites">Sites ≥ 5 mm : ${sum.deepTxt}</span>` : '')
+      + (sum.furcTxt ? `<span class="sites">Furcations : ${sum.furcTxt}</span>` : '') + (sum.mobTxt ? `<span class="sites">Mobilités : ${sum.mobTxt}</span>` : '')
+    : `<span class="sites">Les chiffres apparaissent ici au fur et à mesure du sondage.</span>`;
+  renderParo();
+}
+/* periodontal chart drawn like the practice software: one box per tooth, X diagonals, centre square */
+const FURC = {}; [16, 17, 18, 26, 27, 28].forEach((t) => (FURC[t] = 'upM')); [14, 15, 24, 25].forEach((t) => (FURC[t] = 'upP')); [36, 37, 38, 46, 47, 48].forEach((t) => (FURC[t] = 'lo'));
+const ROM = ['0', 'I', 'II', 'III'];
+function furcSlots(t) {
+  const d = dispPos(t), side = (p) => (p === 'D' ? 'disto' : 'mésio');
+  if (FURC[t] === 'upM') return [{ s: 'V', name: 'vestibulaire', row: 0, cx: 40 }, { s: d[0] + 'P', name: side(d[0]) + '-palatine', row: 1, cx: 31 }, { s: d[2] + 'P', name: side(d[2]) + '-palatine', row: 1, cx: 49 }];
+  if (FURC[t] === 'upP') return [{ s: d[0], name: d[0] === 'D' ? 'distale' : 'mésiale', row: 1, cx: 31 }, { s: d[2], name: d[2] === 'D' ? 'distale' : 'mésiale', row: 1, cx: 49 }];
+  if (FURC[t] === 'lo') return [{ s: 'V', name: 'vestibulaire', row: 0, cx: 40 }, { s: 'L', name: 'linguale', row: 1, cx: 40 }];
+  return [];
+}
+function zones(t, fTop, fBot) {
+  const d = dispPos(t);
+  return [
+    { f: fTop, p: 'C', pts: '0,0 80,0 52,24 28,24', x: 40, y: 13, bx: 52 },
+    { f: fTop, p: d[0], pts: '0,0 28,24 28,36 0,36', x: 10, y: 27, bx: 19 },
+    { f: fTop, p: d[2], pts: '80,0 80,36 52,36 52,24', x: 70, y: 27, bx: 61 },
+    { f: fBot, p: 'C', pts: '28,48 52,48 80,72 0,72', x: 40, y: 61, bx: 52 },
+    { f: fBot, p: d[0], pts: '0,36 28,36 28,48 0,72', x: 10, y: 46, bx: 19 },
+    { f: fBot, p: d[2], pts: '52,36 80,36 80,72 52,48', x: 70, y: 46, bx: 61 },
+  ];
+}
+function chartSVG() {
+  const PITCH = 84, LX = 26, MID = 14, W = LX + 16 * PITCH + MID;
+  const X = (i) => LX + i * PITCH + (i >= 8 ? MID : 0);
+  const Y = { upBox: 38, upNum: 124, loNum: 146, loBox: 156, loC: 232 };
+  let h = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} 272" class="pchart" role="img" aria-label="Schéma parodontal">`;
+  h += `<defs><pattern id="hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="6" class="hl"/></pattern></defs>`;
+  h += `<text class="flab" x="4" y="${Y.upBox + 14}">V</text><text class="flab" x="4" y="${Y.upBox + 64}">P</text>`;
+  h += `<text class="flab" x="4" y="${Y.loBox + 14}">L</text><text class="flab" x="4" y="${Y.loBox + 64}">V</text>`;
+  h += `<line class="midl" x1="${X(8) - MID / 2 - 2}" y1="0" x2="${X(8) - MID / 2 - 2}" y2="272"/>`;
+  const tooth = (t, i, upper) => {
+    const ox = X(i), by = upper ? Y.upBox : Y.loBox, abs = S.absent.has(t);
+    let g = `<text class="tnum${abs ? ' abs' : ''}" data-t="${t}" x="${ox + 40}" y="${upper ? Y.upNum : Y.loNum}">${t}</text>`;
+    // furcations
+    if (!abs) furcSlots(t).forEach((f) => {
+      const v = S.furc[`${t}|${f.s}`], cy = upper ? 10 + f.row * 16 : Y.loC + 6 + f.row * 16;
+      g += `<g data-furc="${t}|${f.s}" class="fcg"><title>${t} furcation ${f.name}</title><circle class="fc${v >= 2 ? ' f23' : ''}" cx="${ox + f.cx}" cy="${cy}" r="7"/><text class="ft" x="${ox + f.cx}" y="${cy + 0.5}">${v === undefined ? '' : ROM[v]}</text></g>`;
+    });
+    g += `<g transform="translate(${ox},${by})">`;
+    if (abs) g += `<rect class="absr" x="0" y="0" width="80" height="72"/>`;
+    else {
+      zones(t, upper ? 'V' : 'L', upper ? 'P' : 'V').forEach((z) => {
+        const k = `${t}${z.f}${z.p}`, val = S.vals[k], idx = SEQ.findIndex((q) => q.t === t && q.f === z.f && q.p === z.p);
+        const cls = val >= 6 ? 'w6' : val === 5 ? 'w5' : val === 4 ? 'w4' : '';
+        g += `<polygon class="z ${cls}" points="${z.pts}" data-i="${idx}"><title>${t} ${FACENAME[z.f]} ${POSNAME[z.p]}</title></polygon>`;
+        if (val !== undefined) g += `<text class="v ${cls}" x="${z.x}" y="${z.y}">${val}</text>`;
+        if (val !== undefined && S.bop[k]) g += `<circle class="bd" cx="${z.bx}" cy="${z.y - 6}" r="2.8"/>`;
+        if (idx === S.cur) g += `<polygon class="curz" points="${z.pts}"/>`;
+      });
+      const m = S.mob[t] || 0;
+      g += `<g data-mob="${t}"><title>${t} mobilité (cliquer pour changer)</title><rect class="mob${m >= 2 ? ' m2' : ''}" x="28" y="24" width="24" height="24"/><text class="mt" x="40" y="36.5">${m ? m : ''}</text></g>`;
+    }
+    return g + `</g>`;
+  };
+  UP.forEach((t, i) => (h += tooth(t, i, true)));
+  LO.forEach((t, i) => (h += tooth(t, i, false)));
+  return h + `</svg>`;
+}
+$('chart').addEventListener('click', (e) => {
+  const el = e.target.closest('[data-i],[data-t],[data-furc],[data-mob]'); if (!el) return;
+  if (el.dataset.i !== undefined) { S.cur = +el.dataset.i; renderSond(); $('cap').focus(); }
+  else if (el.dataset.t) { const t = +el.dataset.t; if (S.absent.has(t)) S.absent.delete(t); else { S.absent.add(t); clearTooth(t); } if (SEQ[S.cur] && S.absent.has(SEQ[S.cur].t)) S.cur = nextIdx(S.cur); renderSond(); }
+  else if (el.dataset.furc) { const k = el.dataset.furc, v = S.furc[k]; if (v === undefined) S.furc[k] = 0; else if (v >= 3) delete S.furc[k]; else S.furc[k] = v + 1; renderSond(); }
+  else if (el.dataset.mob) { const t = el.dataset.mob; S.mob[t] = ((S.mob[t] || 0) + 1) % 4; renderSond(); }
+});
+$('toBilan').onclick = () => {
+  const s = sondSummary(); if (!s) { flash('Rien à reporter : aucun site mesuré.'); return; }
+  fill({ p_pd: s.max, p_sites5: s.s5, p_bop: s.bop, p_dents: s.present, p_furc: s.furc23, p_mob: s.mob2 }); show('paro'); renderParo();
+};
+function resetSond() { S.vals = {}; S.bop = {}; S.furc = {}; S.mob = {}; S.absent = new Set(); S.cur = 0; S.last = -1; S.history = []; }
+function sampleSond() {
+  resetSond(); [18, 28, 36].forEach((t) => S.absent.add(t));
+  S.furc = { '16|V': 2, '17|V': 1, '26|V': 1, '47|V': 1 }; S.mob = { 41: 1, 31: 1 };
+  const deep = { '16VD': 6, '16VC': 4, '16PD': 7, '26VM': 5, '26PC': 6, '46VD': 5, '47LM': 6, '37VD': 5, '11PM': 4, '31LC': 4, '41LC': 5, '14VM': 4 };
+  let seed = 7; const rnd = () => ((seed = (seed * 9301 + 49297) % 233280) / 233280);
+  SEQ.forEach((s, i) => { if (S.absent.has(s.t)) return; const k = key(s); S.vals[k] = deep[k] ?? (rnd() < 0.55 ? 3 : 2); if ((deep[k] && rnd() < 0.8) || rnd() < 0.18) S.bop[k] = true; S.history.push(i); });
+  S.cur = SEQ.length; S.last = SEQ.length - 1;
+}
+
+/* ---------- PANORAMIQUE : chargement, masquage, lecture par Claude ---------- */
+const PX = { img: null, masks: [], drag: null, ctl: null, running: false };
+const pcv = $('panoCanvas');
+function panoMsg(m, err) { $('panoMsg').textContent = m || ''; $('panoMsg').classList.toggle('err', !!err); }
+function drawPano() {
+  const has = !!PX.img;
+  pcv.hidden = !has; $('panoEmpty').hidden = has; $('maskCtl').hidden = !has; $('aiBox').hidden = !has || !AI.ok;
+  if (!has) return;
+  const x = pcv.getContext('2d');
+  x.drawImage(PX.img, 0, 0, pcv.width, pcv.height);
+  x.fillStyle = '#000'; PX.masks.forEach((m) => x.fillRect(m.x, m.y, m.w, m.h));
+  if (PX.drag) {
+    const r = rectOf(PX.drag); x.save(); x.fillStyle = 'rgba(0,0,0,0.6)'; x.fillRect(r.x, r.y, r.w, r.h);
+    x.strokeStyle = '#ffffff'; x.setLineDash([10, 6]); x.lineWidth = Math.max(2, pcv.width / 600); x.strokeRect(r.x, r.y, r.w, r.h); x.restore();
+  }
+}
+const rectOf = (d) => ({ x: Math.min(d.x0, d.x1), y: Math.min(d.y0, d.y1), w: Math.abs(d.x1 - d.x0), h: Math.abs(d.y1 - d.y0) });
+function loadPano(file) {
+  // Accept any image the browser can open: some Macs label a .jpg as "image/jpg" or give no type at all.
+  if (!file) { panoMsg('Aucun fichier reçu. Essayez le bouton « Choisir un fichier ».', true); return; }
+  const name = (file.name || '').toLowerCase();
+  if (/\.(dcm|dicom)$/.test(name)) { panoMsg('Les fichiers DICOM ne s’ouvrent pas ici. Dans votre logiciel de radio, exportez le cliché en JPEG ou PNG, ou faites une capture d’écran (⌘ Maj 4) et collez-la ici.', true); return; }
+  if (/\.(heic|heif)$/.test(name) || /heic|heif/.test(file.type)) { panoMsg('Les photos HEIC de l’iPhone ne s’ouvrent pas partout. Ouvrez-la dans Aperçu, puis Fichier > Exporter en JPEG, ou faites une capture d’écran (⌘ Maj 4) et collez-la ici.', true); return; }
+  if (file.type && !file.type.startsWith('image/')) { panoMsg('Ce fichier n’est pas une image. Exportez la panoramique en JPEG ou PNG, puis réessayez.', true); return; }
+  const url = URL.createObjectURL(file), im = new Image();
+  im.onload = () => {
+    const s = Math.min(1, 2400 / im.naturalWidth);
+    pcv.width = Math.round(im.naturalWidth * s); pcv.height = Math.round(im.naturalHeight * s);
+    PX.img = im; PX.masks = []; $('maskOk').checked = false; clearAI(); drawPano(); updAiBtn();
+    panoMsg('Image chargée. Masquez le nom du patient : tracez un rectangle dessus à la souris, ou utilisez les bandeaux.');
+  };
+  im.onerror = () => panoMsg('Ce navigateur n’arrive pas à ouvrir cette image. Faites une capture d’écran de la radio (⌘ Maj 4 sur Mac), puis collez-la ici avec ⌘ V.', true);
+  im.src = url;
+}
+const ptOf = (e) => { const r = pcv.getBoundingClientRect(); return { x: (e.clientX - r.left) * pcv.width / r.width, y: (e.clientY - r.top) * pcv.height / r.height }; };
+pcv.addEventListener('pointerdown', (e) => { if (!PX.img) return; const p = ptOf(e); PX.drag = { x0: p.x, y0: p.y, x1: p.x, y1: p.y }; pcv.setPointerCapture(e.pointerId); });
+pcv.addEventListener('pointermove', (e) => { if (!PX.drag) return; const p = ptOf(e); PX.drag.x1 = p.x; PX.drag.y1 = p.y; drawPano(); });
+pcv.addEventListener('pointerup', () => { if (!PX.drag) return; const r = rectOf(PX.drag); PX.drag = null; if (r.w > 8 && r.h > 8) { PX.masks.push(r); $('maskOk').checked = false; updAiBtn(); } drawPano(); });
+$('maskTop').onclick = () => { PX.masks.push({ x: 0, y: 0, w: pcv.width, h: pcv.height * 0.1 }); drawPano(); };
+$('maskBottom').onclick = () => { PX.masks.push({ x: 0, y: pcv.height * 0.9, w: pcv.width, h: pcv.height * 0.1 }); drawPano(); };
+$('maskUndo').onclick = () => { PX.masks.pop(); $('maskOk').checked = false; updAiBtn(); drawPano(); };
+$('panoPick').onclick = $('panoChange').onclick = () => $('panoFile').click();
+$('panoFile').addEventListener('change', (e) => { loadPano(e.target.files[0]); e.target.value = ''; });
+const drop = $('panoDrop');
+['dragenter', 'dragover'].forEach((ev) => drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.add('over'); }));
+['dragleave', 'drop'].forEach((ev) => drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.remove('over'); }));
+drop.addEventListener('drop', (e) => loadPano(e.dataTransfer.files[0]));
+document.addEventListener('paste', (e) => {
+  if (cur !== 'pano') return;
+  const it = [...(e.clipboardData?.items || [])].find((i) => i.type.startsWith('image/'));
+  if (it) { e.preventDefault(); loadPano(it.getAsFile()); }
+});
+$('maskOk').addEventListener('change', updAiBtn);
+
+// Claude's reading: available only where the page runs inside Claude and may send images.
+const AI = { sample: null, ok: false };
+function updAiBtn() { $('aiRun').disabled = !(PX.img && $('maskOk').checked && AI.ok) || PX.running; }
+(async () => {
+  let s = null;
+  if (window.claude && typeof window.claude.use === 'function') { try { s = await window.claude.use('sample'); } catch (e) {} }
+  if (s) { try { const l = await s.limits(); AI.ok = !!(l && l.images); } catch (e) {} }
+  AI.sample = AI.ok ? s : null;
+  document.querySelectorAll('.only-file').forEach((el) => (el.hidden = AI.ok));
+  drawPano(); updAiBtn();
+})();
+const PANO_PROMPT = `Tu assistes un chirurgien-dentiste français (omnipratique et parodontie) pour la lecture d'une radiographie panoramique dentaire. L'image jointe est cette panoramique. Les rectangles noirs pleins sont des masques posés pour cacher l'identité du patient : ignore-les.
+
+Convention : sur une panoramique, le côté DROIT du patient apparaît à GAUCHE de l'image (quadrants 1 et 4 à gauche de l'image, 2 et 3 à droite). Numérotation FDI : 11 à 48 pour les dents permanentes, 51 à 85 pour les dents temporaires.
+
+Lis dans cet ordre : qualité du cliché ; ATM et trame osseuse ; sinus maxillaires ; canaux mandibulaires ; parodonte (alvéolyse) ; puis chaque dent, quadrant 1, 2, 3, 4.
+
+Règles :
+- Ne relève que ce que tu vois réellement. Ne devine jamais une dent ou une lésion.
+- Si un élément est douteux, mets-le dans "observations" avec certitude "possible", et laisse le champ structuré correspondant vide ou à sa valeur normale.
+- La panoramique sous-estime les caries proximales : parle de suspicion.
+- Pour une dent de sagesse proche du canal mandibulaire, ne remplis "canal" que si des signes de proximité sont visibles (interruption de la corticale du canal, assombrissement de la racine, déviation du canal).
+
+Réponds uniquement avec un objet JSON exactement de cette forme (les valeurs entre | sont les seules permises) :
+{
+ "qualite": "ok|pos|part",
+ "atm": "ok|asym|remod",
+ "os": "ok|lesion",
+ "sinus": "ok|epai|opac",
+ "sinusCote": "|droit|gauche|bilatéral",
+ "canal": "ok|38|48|both",
+ "alv": "0|h|a|m",
+ "alvSev": "c|m|a",
+ "alvRep": "gen|loc",
+ "alvDents": [],
+ "tartre": false,
+ "furc": false,
+ "dents": [ { "dent": 18, "statut": "presente|absente|implant|reste|incluse|nonlisible", "constats": [], "alveolyse": "|c|m|a", "remarque": "" } ],
+ "autres": "",
+ "conduite": { "retro": false, "cbct": false, "paro": false, "soins": false, "avis": false },
+ "observations": [ { "zone": "", "constat": "", "certitude": "probable|possible" } ],
+ "limites": ""
+}
+Signification : qualite ok = satisfaisante, pos = artefacts de positionnement, part = partiellement ininterprétable. atm asym = asymétrie condylienne, remod = remaniement condylien. os lesion = image osseuse à explorer (décris-la dans "autres"). sinus epai = épaississement muqueux, opac = opacité. alv : 0 absente, h horizontale, a angulaire, m mixte ; alvSev : c tiers cervical, m tiers moyen, a tiers apical ; alvDents : dents concernées seulement si l'alvéolyse est localisée (tableau de numéros FDI).
+"dents" : OBLIGATOIREMENT les 32 positions permanentes, une entrée chacune, dans cet ordre de lecture : 18 à 11, 28 à 21, 38 à 31, 48 à 41. "statut" : presente, absente (alvéole cicatrisée, pas de dent), implant, reste (reste radiculaire), incluse (incluse ou semi-incluse), nonlisible (zone floue ou superposée : ne devine pas). "constats" : liste parmi carie (suspicion), resto (restauration), restoDef (restauration défectueuse ou débordante), couronne, endo (traitement canalaire), endoIns (obturation canalaire insuffisante), peri (image radioclaire périapicale) ; liste vide si rien. "alveolyse" : niveau osseux de cette dent, c tiers cervical, m tiers moyen, a tiers apical, vide si pas de perte visible ou dent absente. "remarque" : quelques mots si utile (version, rhizalyse, desmodonte élargi…), sinon vide. "observations" : 3 à 12 constats courts, en français, du plus important au moins important. "limites" : une phrase sur ce qui limite cette lecture (qualité, superpositions, zones masquées).`;
+const AI_FIELDS = [];
+function clearAI() {
+  document.querySelectorAll('#fPano label.ai').forEach((l) => l.classList.remove('ai'));
+  Object.values(T).forEach((r) => (r.ai = false)); renderTeeth();
+  $('aiOut').hidden = true; $('aiList').textContent = ''; $('aiLimits').textContent = '';
+}
+const teethList = (a) => (Array.isArray(a) ? a : String(a || '').split(/[^0-9]+/)).map((x) => String(x).trim()).filter((x) => /^[1-8][1-8]$/.test(x)).join(', ');
+function applyAI(r) {
+  const mark = (el) => el.closest('label')?.classList.add('ai');
+  const sel = (id, val, allowed) => { if (val === undefined || val === null) return; const s = String(val); if (!allowed.includes(s)) return; $(id).value = s; mark($(id)); };
+  const txt = (id, val) => { const s = teethList(val); $(id).value = s; if (s) mark($(id)); };
+  const chk = (id, val) => { $(id).checked = val === true; if (val === true) mark($(id)); };
+  sel('r_qual', r.qualite, ['ok', 'pos', 'part']); sel('r_atm', r.atm, ['ok', 'asym', 'remod']); sel('r_os', r.os, ['ok', 'lesion']);
+  sel('r_sinus', r.sinus, ['ok', 'epai', 'opac']); sel('r_sinusCote', r.sinusCote, ['', 'droit', 'gauche', 'bilatéral']);
+  sel('r_canal', r.canal, ['ok', '38', '48', 'both']); sel('r_alv', r.alv, ['0', 'h', 'a', 'm']); sel('r_alvSev', r.alvSev, ['c', 'm', 'a']); sel('r_alvRep', r.alvRep, ['gen', 'loc']);
+  txt('r_alvDents', r.alvDents); chk('r_tartre', r.tartre); chk('r_furc', r.furc);
+  // Tooth by tooth
+  const STMAP = { presente: 'present', present: 'present', absente: 'absente', absent: 'absente', implant: 'implant', reste: 'reste', incluse: 'incluse', nonlisible: 'nv', nv: 'nv' };
+  const FKEYS = FL.map(([k]) => k);
+  (Array.isArray(r.dents) ? r.dents : []).forEach((d) => {
+    const t = parseInt(d && d.dent, 10); if (!T[t]) return;
+    const st = STMAP[normTxt(String(d.statut || '')).replace(/ /g, '')] || 'present';
+    const f = new Set((Array.isArray(d.constats) ? d.constats : []).map(String).filter((k) => FKEYS.includes(k)));
+    if (f.has('endoIns')) f.add('endo'); if (f.has('restoDef')) f.add('resto');
+    const alv = ['c', 'm', 'a'].includes(String(d.alveolyse)) ? String(d.alveolyse) : '';
+    T[t] = { st, f: st === 'absente' || st === 'nv' ? new Set() : f, alv: st === 'absente' ? '' : alv, note: String(d.remarque || '').slice(0, 120), ai: true };
+  });
+  renderTeeth();
+  const au = String(r.autres || '').slice(0, 600).trim(); $('r_autres').value = au; if (au) mark($('r_autres'));
+  const cd = r.conduite || {}; chk('c_retro', cd.retro); chk('c_cbct', cd.cbct); chk('c_paro', cd.paro); chk('c_soins', cd.soins); chk('c_avis', cd.avis);
+  const ul = $('aiList'); ul.textContent = '';
+  (Array.isArray(r.observations) ? r.observations : []).slice(0, 14).forEach((o) => {
+    const li = document.createElement('li'), ch = document.createElement('span'), tx = document.createElement('span'), z = document.createElement('b');
+    const prob = String(o.certitude) === 'probable';
+    ch.className = 'chip ' + (prob ? 'prob' : 'poss'); ch.textContent = prob ? 'probable' : 'possible';
+    z.textContent = String(o.zone || '').slice(0, 80); tx.append(z, document.createTextNode((z.textContent ? ' : ' : '') + String(o.constat || '').slice(0, 300)));
+    li.append(ch, tx); ul.appendChild(li);
+  });
+  $('aiLimits').textContent = r.limites ? 'Limites de cette lecture : ' + String(r.limites).slice(0, 300) : '';
+  $('aiOut').hidden = false;
+  renderPano();
+}
+$('fPano').addEventListener('input', (e) => e.target.closest('label')?.classList.remove('ai'));
+$('fPano').addEventListener('change', (e) => e.target.closest('label')?.classList.remove('ai'));
+function maskedJPEG() {
+  return new Promise((res) => { PX.drag = null; drawPano(); pcv.toBlob((b) => res(b), 'image/jpeg', 0.92); });
+}
+const AI_ERR = {
+  not_granted: 'Vous n’avez pas autorisé cette page à utiliser Claude. Rechargez la page pour qu’elle vous le redemande.',
+  rate_limited: 'Trop de demandes pour le moment, ou limite d’utilisation de votre compte atteinte. Réessayez dans quelques minutes.',
+  image_rejected: 'Cette image n’a pas été acceptée (trop grande ou format non pris en charge). Exportez-la de nouveau en JPEG.',
+  refused: 'Claude n’a pas pu lire cette image. Vérifiez qu’il s’agit bien d’une panoramique, puis réessayez.',
+  invalid_json: 'La réponse de Claude était incomplète. Cliquez de nouveau pour réessayer.',
+  session_expired: 'Votre session Claude a expiré. Reconnectez-vous, puis réessayez.',
+};
+$('aiRun').onclick = async () => {
+  if (!AI.sample || PX.running) return;
+  PX.running = true; updAiBtn(); $('aiStop').hidden = false; clearAI();
+  panoMsg('Claude lit la panoramique. Cela prend en général une à deux minutes.');
+  PX.ctl = new AbortController();
+  try {
+    const img = await maskedJPEG();
+    if (!img) throw { code: 'image_rejected' };
+    const r = await AI.sample.json(PANO_PROMPT, { images: [img], modelTier: 'complex', signal: PX.ctl.signal,
+      onText: () => panoMsg('Claude rédige sa lecture…') });
+    if (!r || typeof r !== 'object') throw { code: 'invalid_json' };
+    applyAI(r);
+    panoMsg('Lecture terminée. Les champs surlignés sont des propositions : vérifiez chacun sur l’image avant de copier le compte rendu.');
+  } catch (e) {
+    if (e && e.code === 'cancelled') panoMsg('Lecture arrêtée.');
+    else panoMsg(((e && AI_ERR[e.code]) || 'La lecture n’a pas abouti. Cliquez de nouveau pour réessayer.') + (e && e.code ? ` (code : ${e.code})` : ''), true);
+    if (e && ['not_granted', 'sampling_disabled', 'images_unavailable', 'capability_disabled', 'not_declared'].includes(e.code)) { AI.ok = false; drawPano(); }
+  }
+  PX.running = false; $('aiStop').hidden = true; updAiBtn();
+};
+$('aiStop').onclick = () => PX.ctl && PX.ctl.abort();
+$('reset').addEventListener('click', () => { if (cur !== 'pano') return; PX.img = null; PX.masks = []; clearAI(); panoMsg(''); drawPano(); });
+drawPano();
+
+/* ---------- WORD EXPORT (.docx built in the page, no server) ---------- */
+const EXPORT_CSS = `.z{fill:#fff;stroke:#7a8a92;stroke-width:1}.z.w4{fill:#f7eadb}.z.w5{fill:#a9601a}.z.w6{fill:#a3302b}
+text{text-anchor:middle;dominant-baseline:middle;font-family:Arial,Helvetica,sans-serif}
+.v{font-size:15px;font-weight:700;fill:#15232b}.v.w5,.v.w6{fill:#fff}.bd{fill:#a3302b}.z.w5+.v+.bd,.z.w6+.v+.bd{fill:#fff}.curz{display:none}
+.mob{fill:#f3f6f7;stroke:#7a8a92}.mob.m2{fill:#f7eadb;stroke:#a9601a}.mt{font-size:12px;font-weight:700;fill:#15232b}
+.tnum{font-size:13px;font-weight:700;fill:#15232b}.tnum.abs{fill:#9aa7ad;text-decoration:line-through}
+.absr{fill:url(#hatch);stroke:#d5dee2}.hl{stroke:#c5ced2;stroke-width:2}
+.fc{fill:#fff;stroke:#7a8a92}.fc.f23{fill:#f7eadb;stroke:#a9601a;stroke-width:1.5}.ft{font-size:8px;font-weight:700;fill:#15232b}
+.flab{font-size:11px;font-weight:700;fill:#566771;text-anchor:start}.midl{stroke:#7a8a92;stroke-dasharray:3 3}`;
+const CH_W = 1384, CH_H = 272;
+function chartPNG() {
+  return new Promise((res, rej) => {
+    const s = chartSVG().replace(/^<svg /, `<svg width="${CH_W}" height="${CH_H}" `)
+      .replace(/^(<svg[^>]*>)/, `$1<style>${EXPORT_CSS}</style><rect x="0" y="0" width="${CH_W}" height="${CH_H}" fill="#ffffff"/>`);
+    const img = new Image();
+    // Patient's right side (18–11 / 48–41) on top, left side (21–28 / 31–38) below: twice as large on an A4 page.
+    img.onload = () => {
+      const cv = document.createElement('canvas'), sc = 2, LBL = 26, SPLIT = 705, GAP = 18;
+      const HW = Math.max(SPLIT, LBL + (CH_W - SPLIT));
+      cv.width = HW * sc; cv.height = (CH_H * 2 + GAP) * sc;
+      const x = cv.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, cv.width, cv.height); x.scale(sc, sc);
+      x.drawImage(img, 0, 0, SPLIT, CH_H, 0, 0, SPLIT, CH_H);                                   // right side of the mouth
+      x.drawImage(img, 0, 0, LBL, CH_H, 0, CH_H + GAP, LBL, CH_H);                              // V / P / L labels again
+      x.drawImage(img, SPLIT, 0, CH_W - SPLIT, CH_H, LBL, CH_H + GAP, CH_W - SPLIT, CH_H);      // left side of the mouth
+      cv.toBlob((b) => (b ? res({ blob: b, w: HW, h: CH_H * 2 + GAP }) : rej(new Error('png'))), 'image/png');
+    };
+    img.onerror = () => rej(new Error('svg'));
+    img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(s);
+  });
+}
+// Minimal ZIP writer (stored, no compression): enough for a valid .docx.
+const CRC_T = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+function crc32(b) { let c = 0xFFFFFFFF; for (let i = 0; i < b.length; i++) c = CRC_T[(c ^ b[i]) & 255] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; }
+function zipStore(files) {
+  const enc = new TextEncoder(), parts = [], central = []; let off = 0;
+  for (const f of files) {
+    const nm = enc.encode(f.name), d = typeof f.data === 'string' ? enc.encode(f.data) : f.data, crc = crc32(d);
+    const h = new DataView(new ArrayBuffer(30));
+    h.setUint32(0, 0x04034b50, true); h.setUint16(4, 20, true); h.setUint16(6, 0x0800, true); h.setUint16(12, 0x21, true);
+    h.setUint32(14, crc, true); h.setUint32(18, d.length, true); h.setUint32(22, d.length, true); h.setUint16(26, nm.length, true);
+    parts.push(new Uint8Array(h.buffer), nm, d);
+    const c = new DataView(new ArrayBuffer(46));
+    c.setUint32(0, 0x02014b50, true); c.setUint16(4, 20, true); c.setUint16(6, 20, true); c.setUint16(8, 0x0800, true); c.setUint16(14, 0x21, true);
+    c.setUint32(16, crc, true); c.setUint32(20, d.length, true); c.setUint32(24, d.length, true); c.setUint16(28, nm.length, true); c.setUint32(42, off, true);
+    central.push(new Uint8Array(c.buffer), nm);
+    off += 30 + nm.length + d.length;
+  }
+  const size = central.reduce((s, a) => s + a.length, 0), e = new DataView(new ArrayBuffer(22));
+  e.setUint32(0, 0x06054b50, true); e.setUint16(8, files.length, true); e.setUint16(10, files.length, true); e.setUint32(12, size, true); e.setUint32(16, off, true);
+  return new Blob([...parts, ...central, new Uint8Array(e.buffer)], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
+}
+const xe = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+function wr(text, o = {}) {
+  return `<w:r><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri" w:cs="Calibri"/>${o.b ? '<w:b/>' : ''}${o.i ? '<w:i/>' : ''}${o.color ? `<w:color w:val="${o.color}"/>` : ''}<w:sz w:val="${o.sz || 21}"/>${o.hl ? '<w:highlight w:val="yellow"/>' : ''}</w:rPr><w:t xml:space="preserve">${xe(text)}</w:t></w:r>`;
+}
+function wp(runs, o = {}) {
+  return `<w:p><w:pPr>${o.keep ? '<w:keepNext/>' : ''}${o.border ? '<w:pBdr><w:bottom w:val="single" w:sz="6" w:space="6" w:color="1F5C7A"/></w:pBdr>' : ''}<w:spacing w:before="${o.before || 0}" w:after="${o.after ?? 80}"/>${o.ind ? `<w:ind w:left="${o.ind}" w:hanging="${o.hang || 0}"/>` : ''}${o.jc ? `<w:jc w:val="${o.jc}"/>` : ''}</w:pPr>${runs}</w:p>`;
+}
+function wImg(cx, cy) {
+  return `<w:p><w:pPr><w:spacing w:before="0" w:after="60"/><w:jc w:val="center"/></w:pPr><w:r><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0"><wp:extent cx="${cx}" cy="${cy}"/><wp:docPr id="1" name="Schéma parodontal"/><a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:nvPicPr><pic:cNvPr id="1" name="schema.png"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="rIdImg"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r></w:p>`;
+}
+const HEAD_RE = /^[A-ZÀÂÄÇÉÈÊËÎÏÔÖÙÛÜ’', -]{4,}$/;
+async function buildDocx(src = 'outParo', withChart = true) {
+  const sd = withChart ? sondSummary() : null; const shot = sd ? await chartPNG() : null;
+  const png = shot ? new Uint8Array(await shot.blob.arrayBuffer()) : null;
+  const lines = $(src).value.split('\n');
+  let b = '';
+  b += wp(wr('Dr Sophie COPPOLA', { b: 1, sz: 30, color: '1F5C7A' }), { after: 0 });
+  b += wp(wr('Chirurgien-dentiste'), { after: 0 });
+  b += wp(wr('65 avenue des Gardians – 34160 Castries', { sz: 19, color: '444444' }), { after: 240, border: 1 });
+  b += wp(wr('Patient(e) : ', { b: 1 }) + wr('[NOM Prénom]', { hl: 1 }) + wr('      Né(e) le : ', { b: 1 }) + wr('[date de naissance]', { hl: 1 }), { after: 200 });
+  lines.forEach((L, i) => {
+    const t = L.trim(); if (!t) return;
+    if (i === 0) {
+      b += wp(wr(t, { b: 1, sz: 28, color: '1F5C7A' }), { after: 160 });
+      if (png) {
+        b += wp(wr('SCHÉMA PARODONTAL', { b: 1, color: '1F5C7A', sz: 22 }), { before: 120, after: 80, keep: 1 });
+        const cx = 5760000, cy = Math.round(cx * shot.h / shot.w); b += wImg(cx, cy);
+        b += wp(wr('Profondeurs de poche en mm. Fond orangé clair : 4 mm ; orange : 5 mm ; rouge : 6 mm et plus. Point : saignement au sondage. Cercles : furcations (classes I à III). Carré central : mobilité. Hachures : dent absente.', { sz: 16, color: '566771', i: 1 }), { after: 200 });
+      }
+    } else if (/^Quadrant \d$/.test(t)) b += wp(wr(t, { b: 1, sz: 20 }), { before: 100, after: 40, keep: 1 });
+    else if (HEAD_RE.test(t)) b += wp(wr(t, { b: 1, color: '1F5C7A', sz: 22 }), { before: 200, after: 80, keep: 1 });
+    else if (t.startsWith('– ')) b += wp(wr('– ' + t.slice(2)), { ind: 360, hang: 200, after: 40 });
+    else b += wp(wr(t), { after: 60 });
+  });
+  b += wp(wr('Dr Sophie Coppola', { b: 1 }), { before: 480, after: 0, jc: 'right' });
+  b += wp(wr('Chirurgien-dentiste'), { after: 0, jc: 'right' });
+  const doc = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"><w:body>${b}<w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="1134" w:right="1134" w:bottom="1134" w:left="1134" w:header="567" w:footer="567" w:gutter="0"/></w:sectPr></w:body></w:document>`;
+  const files = [
+    { name: '[Content_Types].xml', data: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Default Extension="png" ContentType="image/png"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>' },
+    { name: '_rels/.rels', data: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>' },
+    { name: 'word/document.xml', data: doc },
+    { name: 'word/_rels/document.xml.rels', data: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${png ? '<Relationship Id="rIdImg" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/schema.png"/>' : ''}</Relationships>` },
+  ];
+  if (png) files.push({ name: 'word/media/schema.png', data: png });
+  return zipStore(files);
+}
+async function saveFile(name, blob) {
+  // Inside Claude: the viewer's download prompt. As a file in Chrome or Safari: a normal download.
+  if (window.claude && typeof window.claude.use === 'function') {
+    let d = null; try { d = await window.claude.use('downloads'); } catch (e) {}
+    if (d) { await d.save({ filename: name, data: blob }); return; }
+  }
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 3000);
+}
+$('wordPano').onclick = async () => {
+  const t = $('toastPano'), btn = $('wordPano'); btn.disabled = true; t.textContent = 'Préparation du fichier…';
+  try { await saveFile(`Panoramique_${new Date().toISOString().slice(0, 10)}.docx`, await buildDocx('outPano', false)); t.textContent = 'Fichier Word enregistré'; }
+  catch (e) { t.textContent = e && e.code === 'declined' ? 'Enregistrement annulé' : 'Le fichier n’a pas pu être créé. Réessayez.'; }
+  btn.disabled = false; setTimeout(() => (t.textContent = ''), 4000);
+};
+$('wordParo').onclick = async () => {
+  const t = $('toastParo'), btn = $('wordParo'); btn.disabled = true; t.textContent = 'Préparation du fichier…';
+  try {
+    const blob = await buildDocx();
+    await saveFile(`Bilan_parodontal_${new Date().toISOString().slice(0, 10)}.docx`, blob);
+    t.textContent = 'Fichier Word enregistré';
+  } catch (e) {
+    t.textContent = e && e.code === 'declined' ? 'Enregistrement annulé' : 'Le fichier n’a pas pu être créé. Réessayez.';
+  }
+  btn.disabled = false; setTimeout(() => (t.textContent = ''), 4000);
+};
+
+/* ---------- wiring ---------- */
+['fParo', 'fPano'].forEach((f) => { $(f).addEventListener('input', () => f === 'fParo' ? renderParo() : renderPano()); $(f).addEventListener('change', () => f === 'fParo' ? renderParo() : renderPano()); $(f).addEventListener('submit', (e) => e.preventDefault()); });
+let cur = 'paro';
+function show(which) {
+  cur = which;
+  ['sond', 'paro', 'pano'].forEach((w) => { $('view-' + w).hidden = w !== which; $('tab-' + w).setAttribute('aria-selected', w === which); });
+  if (which === 'sond') setTimeout(() => $('cap').focus(), 50);
+  try { localStorage.setItem('tab', which); } catch (e) {}
+}
+$('tab-sond').onclick = () => show('sond'); $('tab-paro').onclick = () => show('paro'); $('tab-pano').onclick = () => show('pano');
+const current = () => cur;
+$('reset').onclick = () => {
+  if (current() === 'sond') { resetSond(); renderSond(); say('Nouveau sondage, 18'); $('cap').focus(); }
+  else if (current() === 'paro') { clear($('fParo')); fill({ t_seances: 2, t_semaines: 8, t_mois: 3 }); renderParo(); }
+  else { clear($('fPano')); resetTeeth(); renderTeeth(); $('r_date').value = new Date().toISOString().slice(0, 10); renderPano(); }
+};
+$('sample').onclick = () => { if (current() === 'sond') { sampleSond(); renderSond(); } else if (current() === 'paro') { fill(SAMPLE_PARO); renderParo(); } else { fill(SAMPLE_PANO); samplePanoTeeth(); renderPano(); } };
+function copy(out, toast) {
+  const ta = $(out), t = $(toast);
+  const done = (msg) => { t.textContent = msg; setTimeout(() => (t.textContent = ''), 2500); };
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(ta.value).then(() => done('Copié'), () => { ta.select(); done('Texte sélectionné : Ctrl+C'); });
+  else { ta.select(); done('Texte sélectionné : Ctrl+C'); }
+}
+$('copyParo').onclick = () => copy('outParo', 'toastParo');
+$('copyPano').onclick = () => copy('outPano', 'toastPano');
+
+buildSeq();
+fill(SAMPLE_PARO); fill(SAMPLE_PANO); samplePanoTeeth(); sampleSond(); renderSond(); renderPano();
+try { const t = localStorage.getItem('tab'); if (t === 'pano' || t === 'sond') show(t); } catch (e) {}
+</script>
+</body></html>
